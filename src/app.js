@@ -1,8 +1,6 @@
 import express from "express"
 import cors from "cors"
 import cookieParser from "cookie-parser"
-
-
 const app = express()
 
 app.use(cors({
@@ -16,10 +14,16 @@ app.use(express.static("public"))
 app.use(cookieParser())
 
 
-import userRouter from './routes/admin.routes.js'
+import userRouter from './routes/user.routes.js'
+import tournamentRouter from './routes/tournament.routes.js'
+import teamRouter from './routes/team.routes.js'
+import playerRouter from './routes/player.routes.js'
 
 // app.use("/api/v1/", adminRouter)
 app.use("/api/users", userRouter)
+app.use("/api/tournament", tournamentRouter)
+app.use("/api/users", teamRouter)
+app.use("/api/users", playerRouter)
 
 
 app.get('/', (req, res) => {
