@@ -22,9 +22,8 @@ import playerRouter from './routes/player.routes.js'
 // app.use("/api/v1/", adminRouter)
 app.use("/api/users", userRouter)
 app.use("/api/tournament", tournamentRouter)
+app.use("/api/player", playerRouter)
 app.use("/api/users", teamRouter)
-app.use("/api/users", playerRouter)
-
 
 app.get('/', (req, res) => {
     res.send("hello world")

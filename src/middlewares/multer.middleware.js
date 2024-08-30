@@ -1,21 +1,23 @@
 import multer from "multer";
 import path from "path";
 
-// Configure multer for file storage
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, "./public/temp"); // Destination folder for uploaded files
+        cb(null, "./public/temp");
     },
     filename: function (req, file, cb) {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         const extension = path.extname(file.originalname);
-        cb(null, file.fieldname + '-' + uniqueSuffix + extension); // Unique file name
+        cb(null, file.fieldname + '-' + uniqueSuffix + extension);
+        console.log("fdsfd");
+
     }
 });
 
 // Export the upload middleware
 export const upload = multer({
     storage,
+
     fileFilter: function (req, file, cb) {
         // Validate file type (e.g., only allow images)
         const fileTypes = /jpeg|jpg|png/;

@@ -3,71 +3,60 @@ import { Player } from "../models/player.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { nanoid } from 'nanoid';  // Import nanoid to generate random strings
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
+
 
 const createPlayer = asyncHandler(async (req, res) => {
     try {
         const {
-            name,
+            playerName,
             city,
             phone,
-            profilePicture,
             email,
             DOB,
             jersyNo,
             role,
             battingStyle,
             bowlingStyle,
-            username, // Optional username field
         } = req.body;
 
-        // Input Validation: Ensure required fields are present
-        if (!name?.trim() || !city?.trim() || !role?.trim() || !battingStyle?.trim() || !bowlingStyle?.trim()) {
-            throw new ApiError(400, "Name, city, phone, and email are required");
+        console.log("body", req.body);
+
+        if (!playerName?.trim() || !DOB || !role?.trim()) {
+            throw new ApiError(400, "Some Field are requires");
         }
 
-        // Generate username if not provided
-        let finalUsername = username?.trim();
-        if (!finalUsername) {
-            const randomString = nanoid(5);  // Generate a random 5-character string
-            finalUsername = `${name.trim().replace(/\s+/g, '')}_${randomString}`.toLowerCase();
+        // Handle profile picture upload
+        let profilePictureLocalPath;
+        if (req.files && Array.isArray(req.files.profilePicture) && req.files.profilePicture.length > 0) {
+            profilePictureLocalPath = req.files.profilePicture[0].path;
         }
+        const profilePicture = await uploadOnCloudinary(profilePictureLocalPath);
 
-        // Check for duplicate email, phone, or username
-        const existingPlayer = await Player.findOne({
-            $or: [{ email }, { phone }, { username: finalUsername }],
-        });
-        if (existingPlayer) {
-            throw new ApiError(409, "Player with the same email, phone, or username already exists");
-        }
-
-        // Data Sanitization: Ensure proper formatting
         const sanitizedData = {
-            name: name.trim(),
-            city: city.trim(),
-            phone: phone.trim(),
-            email: email.trim(),
-            profilePicture: profilePicture?.trim(),
+            playerName: playerName.trim(),
+            city: city?.trim(),
+            phone: phone?.trim(),
+            email: email?.trim(),
+            profilePicture: profilePicture?.url || "",
             DOB,
             jersyNo,
-            role: role?.trim(),
+            role: role.trim(),
             battingStyle: battingStyle?.trim(),
             bowlingStyle: bowlingStyle?.trim(),
-            username: finalUsername,
         };
+        console.log("sanitizedData", sanitizedData);
 
-        // Create and save the new player
         const player = new Player(sanitizedData);
         await player.save();
-
-        // Response with created player details
         const createdPlayer = await Player.findById(player._id)
-            .select('name city phone email profilePicture DOB jersyNo role battingStyle bowlingStyle username');
+            .select('playerName city phone email profilePicture DOB jersyNo role battingStyle bowlingStyle');
 
         return res.status(201).json(
             new ApiResponse(201, createdPlayer, "Player created successfully")
         );
     } catch (error) {
-        throw new ApiError(500, "An error occurred while creating the player");
+        throw new ApiError(500, error);
     }
 });
 
@@ -103,7 +92,6 @@ const updatePlayer = asyncHandler(async (req, res) => {
             role,
             battingStyle,
             bowlingStyle,
-            username,
         } = req.body;
 
         // Find the player by ID

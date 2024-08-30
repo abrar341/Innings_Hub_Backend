@@ -1,11 +1,18 @@
 
 import { Router } from "express";
 import { createPlayer, deletePlayer, getAllPlayers, updatePlayer } from "../controllers/player.controller.js";
+import { upload } from "../middlewares/multer.middleware.js";
 
 const router = Router()
 
-router.route("/createPlayer").post(createPlayer)
-router.route("/allPlayer").get(getAllPlayers)
+router.route("/createPlayer").post(
+    upload.fields([
+        {
+            name: "profilePicture",
+            maxCount: 1
+        }
+    ]), createPlayer)
+router.route("/allPlayers").get(getAllPlayers)
 router.route("/updatePlayer/:id").put(updatePlayer)
 router.route("/deletePlayer/:id").delete(deletePlayer)
 

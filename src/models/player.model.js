@@ -7,24 +7,20 @@ const playerSchema = new Schema({
         type: String,
     },
     // Personal Information
-    name: {
+    playerName: {
         type: String,
         required: true,
         trim: true
     },
-    username: {
-        type: String,
-        unique: true,
-        trim: true
-    },
     email: {
         type: String,
-        unique: true,
-        match: [/.+\@.+\..+/, 'Please fill a valid email address']
+        match: [/.+\@.+\..+/, 'Please fill a valid email address'],
+        default: null,
+        sparse: true
     },
     phone: {
         type: String,
-        match: [/^\d{10,15}$/, 'Please fill a valid phone number']
+        // match: [/^\d{10,15}$/, 'Please fill a valid phone number']
     },
     DOB: {
         type: Date
@@ -47,7 +43,7 @@ const playerSchema = new Schema({
     // Cricket Specifics
     role: {
         type: String,
-        enum: ['All-Rounder', 'Batter', 'Bowler', 'Wicketkeeper Batter'],
+        enum: ['All-Rounder', 'Batsman', 'Bowler', 'wicket-keeper'],
         default: "Batter"
     },
     battingStyle: {
@@ -90,8 +86,5 @@ const playerSchema = new Schema({
     }
 );
 
-// Indexes
-playerSchema.index({ username: 1 });
-playerSchema.index({ email: 1 });
 
 export const Player = mongoose.model('Player', playerSchema);
