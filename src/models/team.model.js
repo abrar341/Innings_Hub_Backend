@@ -4,9 +4,11 @@ const teamSchema = new Schema({
     // Logo of the team
     teamLogo: {
         type: String,
+        trim: true
+
     },
     // Team name
-    name: {
+    teamName: {
         type: String,
         required: true,
         trim: true
@@ -33,8 +35,10 @@ const teamSchema = new Schema({
     },
     teamtype: {
         type: String,
-        enum: ['Club-level', 'School', 'Other'],
-        default: 'Club', // Adjust based on your app's requirements
+        trim: true
+
+        // enum: ['Club-level', 'School', 'Other'],
+        // default: 'Club', // Adjust based on your app's requirements
     },
     // Team captain information
     captain: {
