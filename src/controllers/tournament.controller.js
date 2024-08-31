@@ -36,8 +36,7 @@ const createTournament = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Name, shortName, ballType, and tournamentType are required");
     }
 
-    const name = `${inputName.trim()}-S${season}`;
-
+    const name = inputName.trim();
     const existingTournament = await Tournament.findOne({ name });
     if (existingTournament) {
         throw new ApiError(409, "Season already exists");
@@ -75,7 +74,6 @@ const createTournament = asyncHandler(async (req, res) => {
 });
 const updateTournament = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    console.log(id)
     const {
         season,
         startDate,
@@ -86,16 +84,26 @@ const updateTournament = asyncHandler(async (req, res) => {
         tournamentType,
     } = req.body;
 
+    console.log(req.body);
+    console.log(req.files);
+
     if (!inputName?.trim() || !shortName?.trim() || !ballType?.trim() || !tournamentType?.trim()) {
         throw new ApiError(400, "Name, shortName, ballType, and tournamentType are required");
     }
 
-    const name = `${inputName.trim()}-S${season}`;
+    const name = inputName.trim();
 
     const existingTournament = await Tournament.findOne({ name, _id: { $ne: id } });
     if (existingTournament) {
         throw new ApiError(409, "Season already exists");
     }
+
+    let imageLocalPath;
+    if (req.files && Array.isArray(req.files.image) && req.files.image.length > 0) {
+        imageLocalPath = req.files.image[0].path;
+    }
+
+    const image = imageLocalPath ? await uploadOnCloudinary(imageLocalPath) : null;
 
     const updatedTournament = await Tournament.findByIdAndUpdate(
         id,
@@ -107,6 +115,7 @@ const updateTournament = asyncHandler(async (req, res) => {
             endDate,
             ballType,
             tournamentType,
+            ...(image && { image: image.url }), // Only update image if a new one is provided
         },
         { new: true, runValidators: true }
     );
@@ -119,6 +128,7 @@ const updateTournament = asyncHandler(async (req, res) => {
         new ApiResponse(200, updatedTournament, "Tournament updated successfully")
     );
 });
+
 const deleteTournament = asyncHandler(async (req, res) => {
 
     const { id } = req.params;

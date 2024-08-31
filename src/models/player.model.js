@@ -44,17 +44,14 @@ const playerSchema = new Schema({
     role: {
         type: String,
         enum: ['All-Rounder', 'Batsman', 'Bowler', 'wicket-keeper'],
-        default: "Batter"
     },
     battingStyle: {
         type: String,
         enum: ['Right-handed', 'Left-handed'],
-        default: "Right-handed"
     },
     bowlingStyle: {
         type: String,
         enum: ['Right-arm fast', 'Left-arm fast', 'Right-arm spin', 'Left-arm spin'],
-        default: "Right-arm fast"
     },
     // Team and Tournament Associations
     teams: [{                 //list of teams in which played

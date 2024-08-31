@@ -13,7 +13,13 @@ router.route("/createPlayer").post(
         }
     ]), createPlayer)
 router.route("/allPlayers").get(getAllPlayers)
-router.route("/updatePlayer/:id").put(updatePlayer)
+router.route("/updatePlayer/:id").put(
+    upload.fields([
+        {
+            name: "profilePicture",
+            maxCount: 1
+        }
+    ]), updatePlayer)
 router.route("/deletePlayer/:id").delete(deletePlayer)
 
 

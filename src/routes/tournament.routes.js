@@ -14,7 +14,13 @@ router.route("/createTournament").post(
         }
     ]), createTournament)
 
-router.route("/updateTournament/:id").put(updateTournament)
+router.route("/updateTournament/:id").put(
+    upload.fields([
+        {
+            name: "image",
+            maxCount: 1
+        }
+    ]), updateTournament)
 router.route("/deleteTournament/:id").delete(deleteTournament)
 router.route("/allTournament").get(getAllTournaments)
 router.route("/upcomingTournaments").get(getUpcomingTournaments)

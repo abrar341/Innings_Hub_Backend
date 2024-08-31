@@ -13,7 +13,13 @@ router.route("/createTeam").post(
         }
     ]), createTeam)
 router.route("/allTeams").get(getAllTeams)
-router.route("/updateTeam/:id").put(updateTeam)
+router.route("/updateTeam/:id").put(
+    upload.fields([
+        {
+            name: "teamLogo",
+            maxCount: 1
+        }
+    ]), updateTeam)
 router.route("/deleteTeam/:id").delete(deleteTeam)
 
 
