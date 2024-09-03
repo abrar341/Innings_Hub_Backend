@@ -13,28 +13,28 @@ const createTeam = asyncHandler(async (req, res) => {
             location,
             teamtype,
         } = req.body;
-        console.log(req.body);
-
-
-        // Input Validation: Ensure required fields are present
-        // if (!teamName?.trim() || !shortName?.trim() || !teamtype?.trim()) {
-        //     throw new ApiError(400, "Name, shortName, and teamtype are required");
-        // }
-
-        // Check if the team name or short name already exists
+        console.log("body", req.body);
+        console.log("files", req.files);
         const existingTeam = await Team.findOne({ $or: [{ teamName }, { shortName }] });
         if (existingTeam) {
             throw new ApiError(409, "Team with the same name or short name already exists");
         }
+        // let teamLogoLocalPath;
+        // if (req.files && Array.isArray(req.files.teamLogo) && req.files.teamLogo.length > 0) {
+        //     teamLogoLocalPath = req.files.teamLogo[0].path;
+        // }
+        // const teamLogo = await uploadOnCloudinary(teamLogoLocalPath);
+        // console.log("teamLogo", teamLogo);
+
         let teamLogoLocalPath;
         if (req.files && Array.isArray(req.files.teamLogo) && req.files.teamLogo.length > 0) {
             teamLogoLocalPath = req.files.teamLogo[0].path;
         }
         const teamLogo = await uploadOnCloudinary(teamLogoLocalPath);
-        console.log("teamLogo", teamLogo);
+        console.log(teamLogo);
 
         const sanitizedData = {
-            teamLogo: teamLogo?.url || "",
+            teamLogo: teamLogo?.url.trim() || "",
             teamName: teamName?.trim(),
             shortName: shortName?.trim(),
             location: location?.trim(),
@@ -86,8 +86,9 @@ const updateTeam = asyncHandler(async (req, res) => {
             teamLogoLocalPath = req.files.teamLogo[0].path;
         }
         const teamLogo = await uploadOnCloudinary(teamLogoLocalPath);
+        console.log(teamLogo);
 
-        team.teamLogo = teamLogo?.trim() || team.teamLogo;
+        team.teamLogo = teamLogo?.url.trim() || team.teamLogo;
         team.teamName = teamName.trim();
         team.shortName = shortName.trim();
         team.location = location?.trim() || team.location;

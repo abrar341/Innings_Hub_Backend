@@ -64,7 +64,6 @@ const tournamentSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'Team',
     },
-
     leaderboard: {
         bat: {
             player: {

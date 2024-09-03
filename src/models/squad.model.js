@@ -7,19 +7,16 @@ const squadSchema = new Schema({
         required: true,
         trim: true
     },
-    // The team this squad belongs to
     team: {
         type: Schema.Types.ObjectId,
         ref: 'Team',
         required: true
     },
-    // The tournament this squad is participating in
     tournament: {
         type: Schema.Types.ObjectId,
         ref: 'Tournament',
         required: true
     },
-    // Players in the squad
     players: [{
         type: Schema.Types.ObjectId,
         ref: 'Player',
