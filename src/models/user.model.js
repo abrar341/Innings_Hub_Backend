@@ -32,16 +32,31 @@ const userSchema = new Schema(
         refreshToken: {
             type: String
         },
+        isVerified: {
+            type: Boolean,
+            default: false,
+        },
         role: {
             type: String,
-            enum: ['Admin', 'Scorer', 'Club-Manager', 'Other'],
-            required: true
-        }
+            enum: ["Admin", "ClubManager", "R-User"],
+            required: true,
+            default: "Fan",
+        },
+        resetPasswordToken: String,
+        resetPasswordExpiresAt: Date,
+        verificationToken: String,
+        verificationTokenExpiresAt: Date,
+        club: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Club",
+            required: function () {
+                return this.role === "ClubManager";
+            },
+        },
     },
-    {
-        timestamps: true
-    }
+    { timestamps: true }
 )
+
 
 userSchema.pre("save", async function (next) {
     if (!this.isModified("password")) return next();
