@@ -53,8 +53,7 @@ const playerSchema = new Schema({
         type: String,
         enum: ['Right-arm fast', 'Left-arm fast', 'Right-arm spin', 'Left-arm spin'],
     },
-    // Team and Tournament Associations
-    teams: [{                 //list of teams in which played
+    teams: [{
         type: Schema.Types.ObjectId,
         ref: 'Team',
     }],
@@ -62,10 +61,14 @@ const playerSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'Team',
     },
-    tournamentsPlayed: [{      //list of tournaments played
+    associatedClub: {
         type: Schema.Types.ObjectId,
-        ref: 'Tournament',
-    }],
+        ref: 'Club',
+    },
+    // tournamentsPlayed: [{      //list of tournaments played
+    //     type: Schema.Types.ObjectId,
+    //     ref: 'Tournament',
+    // }],
     stats: {                 //stats of player
         matches: { type: Number, default: 0 },
         runs: { type: Number, default: 0 },
