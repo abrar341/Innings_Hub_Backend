@@ -3,6 +3,7 @@ import {
     PASSWORD_RESET_REQUEST_TEMPLATE,
     PASSWORD_RESET_SUCCESS_TEMPLATE,
     VERIFICATION_EMAIL_TEMPLATE,
+    WELCOME_EMAIL_TEMPLATE,
 } from "./emailTemplates.js";
 const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
@@ -34,3 +35,24 @@ export const sendVerificationEmail = async (to, verificationCode) => {
         throw new Error('Email sending failed.');
     }
 };
+
+export const sendWelcomeEmail = async (to, name) => {
+    try {
+        // Setup email data
+        const mailOptions = {
+            from: "muhammadabrar341@gmail.com", // sender address
+            to: to, // recipient email
+            subject: "Welcome to Our App!",
+            html: WELCOME_EMAIL_TEMPLATE.replace("{name}", name),
+            category: "Welcome Email",
+        };
+
+        // Send email
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Welcome email sent: ' + info.response);
+    } catch (error) {
+        console.error('Error sending welcome email:', error);
+        throw new Error('Welcome email sending failed.');
+    }
+};
+
