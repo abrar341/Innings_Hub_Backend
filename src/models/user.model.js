@@ -38,9 +38,9 @@ const userSchema = new Schema(
         },
         role: {
             type: String,
-            enum: ["Admin", "Club-Manager", "Regular-User"],
+            enum: ["admin", "club-manager", "regular-user"],
             required: true,
-            default: "Fan",
+            default: "regular-user",
         },
         resetPasswordToken: String,
         resetPasswordExpiresAt: Date,
@@ -49,15 +49,27 @@ const userSchema = new Schema(
         club: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Club",
-            required: function () {
-                return this.role === "ClubManager";
-            },
+            default: function () {
+                return this.role === "club-manager" ? null : undefined;
+            }
         },
     },
     { timestamps: true }
 )
 
+userSchema.pre("save", async function (next) {
+    // Check if the role is `club-manager` and club is not assigned
+    if (this.role === "club-manager" && !this.club) {
+        this.club = null;  // Explicitly set the club to null if not assigned
+    }
 
+    // Check if the role is NOT `club-manager` and the `club` field is assigned
+    if (this.role !== "club-manager") {
+        this.set('club', undefined);  // Set `club` to undefined to remove it
+    }
+
+    next();
+});
 userSchema.pre("save", async function (next) {
     if (!this.isModified("password")) return next();
 

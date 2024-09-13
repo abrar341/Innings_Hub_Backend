@@ -44,13 +44,6 @@ const unverifiedUserSchema = new Schema(
     resetPasswordExpiresAt: Date,
     verificationToken: String,
     verificationTokenExpiresAt: Date,
-    club: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Club",
-      required: function () {
-        return this.role === "ClubManager";
-      },
-    },
   },
   { timestamps: true }
 )

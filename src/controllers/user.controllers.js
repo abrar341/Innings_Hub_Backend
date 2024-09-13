@@ -34,12 +34,17 @@ const registerUser = asyncHandler(async (req, res) => {
             throw new ApiError(409, "User with email or username already exists");
         } else {
             const verificationToken = Math.floor(100000 + Math.random() * 900000).toString();
+            existedUser.name = name;
+            existedUser.password = password;
+            existedUser.username = username;
+            existedUser.role = role.toLowerCase();
+
             existedUser.verificationToken = verificationToken;
             await existedUser.save();
             await sendVerificationEmail(existedUser.email, verificationToken);
 
             return res.status(200).json(
-                new ApiResponse(200, existedUser, "User already exists but not verified. Verification email has been resent.")
+                new ApiResponse(200, existedUser, "Verification code send to your email")
             );
         }
     }
@@ -51,7 +56,7 @@ const registerUser = asyncHandler(async (req, res) => {
         email,
         password,
         username: username.toLowerCase(),
-        role,
+        role: role.toLowerCase(),
         verificationToken,
         verificationTokenExpiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
     })
@@ -80,34 +85,25 @@ export const verifyEmail = asyncHandler(async (req, res) => {
     }
 
     try {
-        // Step 1: Find the user by email
         const user = await User.findOne({ email });
 
-        // If user is not found
         if (!user) {
             throw new ApiError(400, "User with this email not found");
         }
-
-        // Step 2: Check if the verification token has expired
         if (!user.verificationTokenExpiresAt || user.verificationTokenExpiresAt < Date.now()) {
             throw new ApiError(400, "Verification code has expired");
         }
 
-        // Step 3: Validate the verification code
         if (user.verificationToken !== code) {
             throw new ApiError(400, "Invalid verification code");
         }
 
-        // Step 4: Mark the user as verified and clear the token fields
         user.isVerified = true;
         user.verificationToken = undefined;
         user.verificationTokenExpiresAt = undefined;
         await user.save();
 
-        // Optionally send a welcome email to the user
         await sendWelcomeEmail(user.email, user.name);
-
-        // Step 5: Return success response with user details (excluding password)
         return res.status(200).json(
             new ApiResponse(200, {
                 ...user._doc,
@@ -151,6 +147,11 @@ const loginUser = asyncHandler(async (req, res) => {
     const user = await User.findOne({ email })
     if (!user) {
         throw new ApiError(404, "Invalid Email or Password")
+    }
+    if (user) {
+        if (!user.isVerified) {
+            throw new ApiError(409, "Invalid Email or Password");
+        }
     }
     const isPasswordValid = await user.isPasswordCorrect(password)
     if (!isPasswordValid) {
