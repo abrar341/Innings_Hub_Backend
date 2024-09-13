@@ -144,25 +144,38 @@ const loginUser = asyncHandler(async (req, res) => {
     if (!email || !password) {
         throw new ApiError(401, 'Email and Password required');
     }
-    const user = await User.findOne({ email })
+
+    const user = await User.findOne({ email });
+
     if (!user) {
-        throw new ApiError(404, "Invalid Email or Password")
+        throw new ApiError(404, "Invalid Email or Password");
     }
-    if (user) {
-        if (!user.isVerified) {
-            throw new ApiError(409, "Invalid Email or Password");
-        }
+
+    if (user && !user.isVerified) {
+        throw new ApiError(409, "Invalid Email or Password");
     }
-    const isPasswordValid = await user.isPasswordCorrect(password)
+
+    const isPasswordValid = await user.isPasswordCorrect(password);
     if (!isPasswordValid) {
         throw new ApiError(401, 'Invalid email or password');
     }
-    const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id)
-    const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
+
+    const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id);
+
+    // Find the logged-in user, populating the club details if the user is a manager
+    const loggedInUser = await User.findById(user._id)
+        .select("-password -refreshToken")  // Exclude password and refreshToken
+        .populate({
+            path: 'club', // Assuming clubId is the reference field in the user schema
+            select: 'clubName registrationStatus' // Select only the club name and registrationStatus
+        });
+    console.log(loggedInUser);
+
     const options = {
         httpOnly: true,
-        secure: true
-    }
+        secure: true,
+        sameSite: 'strict', // Helps prevent CSRF attacks (optional)
+    };
 
     return res
         .status(200)
@@ -172,16 +185,17 @@ const loginUser = asyncHandler(async (req, res) => {
             new ApiResponse(
                 200,
                 {
-                    user: loggedInUser, accessToken, refreshToken
+                    user: loggedInUser,
+                    accessToken,
+                    refreshToken
                 },
-                "User logged In Successfully"
+                "User logged in successfully"
             )
-        )
+        );
+});
 
-})
 
 const logoutUser = asyncHandler(async (req, res) => {
-
     await User.findByIdAndUpdate(
         req.user._id,
         {

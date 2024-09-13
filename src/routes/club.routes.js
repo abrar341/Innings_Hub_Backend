@@ -7,16 +7,12 @@ const router = Router()
 
 
 
-router.route("/createClub").post(
+router.route("/registerClub").post(
     upload.fields([
         {
             name: "clubLogo",
             maxCount: 1
         }
     ]), createClub)
-
-
-
-
 
 export default router

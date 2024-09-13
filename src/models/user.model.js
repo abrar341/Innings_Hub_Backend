@@ -42,12 +42,26 @@ const userSchema = new Schema(
             required: true,
             default: "regular-user",
         },
+        phone: {
+            type: String,
+        },
+        address: {
+            type: String,
+
+        },
         resetPasswordToken: String,
         resetPasswordExpiresAt: Date,
         verificationToken: String,
         verificationTokenExpiresAt: Date,
         club: {
             type: mongoose.Schema.Types.ObjectId,
+            ref: "Club",
+            default: function () {
+                return this.role === "club-manager" ? null : undefined;
+            }
+        },
+        address: {
+            type: String,
             ref: "Club",
             default: function () {
                 return this.role === "club-manager" ? null : undefined;

@@ -16,10 +16,14 @@ const clubSchema = new Schema(
             required: true,
             trim: true
         },
+        yearEstablished: {
+            type: String,
+            required: true,
+        },
         manager: {
             type: Schema.Types.ObjectId,
             ref: 'User',
-            // required: true
+            required: true
         },
         registrationStatus: {
             type: String,
@@ -34,6 +38,9 @@ const clubSchema = new Schema(
             type: Schema.Types.ObjectId,
             ref: 'Player'
         }],
+        socialLink: {
+            type: String,
+        }
     },
     {
         timestamps: true
