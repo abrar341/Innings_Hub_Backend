@@ -76,6 +76,28 @@ const registerUser = asyncHandler(async (req, res) => {
 
 })
 
+const getUserProfile = asyncHandler(async (req, res) => {
+    const userId = req.params.id; // Get userId from URL params or auth middleware
+    console.log(userId);
+
+    // Fetch user details from the database
+    const user = await User.findById(userId)
+        .select('-password -refreshToken')
+        .populate({
+            path: 'club', // Assuming 'club' is a reference field in the user schema
+        });
+
+    // If user doesn't exist, return an error
+    if (!user) {
+        throw new ApiError(404, 'User not found');
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, user, 'User profile fetched successfully')
+    );
+});
+
+
 export const verifyEmail = asyncHandler(async (req, res) => {
     const { code, email } = req.body; // Capture email and code from the user input
     console.log(req.body);
@@ -167,7 +189,6 @@ const loginUser = asyncHandler(async (req, res) => {
         .select("-password -refreshToken")  // Exclude password and refreshToken
         .populate({
             path: 'club', // Assuming clubId is the reference field in the user schema
-            select: 'clubName registrationStatus' // Select only the club name and registrationStatus
         });
     console.log(loggedInUser);
 
@@ -249,5 +270,6 @@ export {
     registerUser,
     loginUser,
     logoutUser,
-    changeCurrentPassword
+    changeCurrentPassword,
+    getUserProfile
 }

@@ -45,6 +45,11 @@ const playerSchema = new Schema({
         type: String,
         enum: ['All-Rounder', 'Batsman', 'Bowler', 'wicket-keeper'],
     },
+    status: {
+        type: String,
+        enum: ['Active', 'inActive'],
+        default: 'inActive'
+    },
     battingStyle: {
         type: String,
         enum: ['Right-handed', 'Left-handed'],
@@ -65,10 +70,6 @@ const playerSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'Club',
     },
-    // tournamentsPlayed: [{      //list of tournaments played
-    //     type: Schema.Types.ObjectId,
-    //     ref: 'Tournament',
-    // }],
     stats: {                 //stats of player
         matches: { type: Number, default: 0 },
         runs: { type: Number, default: 0 },

@@ -18,9 +18,10 @@ const createPlayer = asyncHandler(async (req, res) => {
             role,
             battingStyle,
             bowlingStyle,
+            associatedClub
         } = req.body;
 
-        console.log("body", req.body);
+        console.log(associatedClub);
 
         if (!playerName?.trim() || !DOB || !role?.trim()) {
             throw new ApiError(400, "Some Field are requires");
@@ -44,6 +45,7 @@ const createPlayer = asyncHandler(async (req, res) => {
             role: role.trim(),
             battingStyle: battingStyle?.trim(),
             bowlingStyle: bowlingStyle?.trim(),
+            associatedClub: associatedClub?.trim()
         };
 
         const player = new Player(sanitizedData);
@@ -59,6 +61,9 @@ const createPlayer = asyncHandler(async (req, res) => {
         throw new ApiError(500, error);
     }
 });
+
+
+
 
 const getAllPlayers = asyncHandler(async (req, res) => {
     try {

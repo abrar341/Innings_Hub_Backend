@@ -6,6 +6,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { User } from "../models/user.model.js";
+import { Player } from "../models/player.model.js";
 
 
 const createClub = asyncHandler(async (req, res) => {
@@ -23,8 +24,8 @@ const createClub = asyncHandler(async (req, res) => {
         console.log(socialLink);
 
         // Find user by managerEmail
-        const managerUser = await User.findOne({ email: managerEmail })
-        select("-password -refreshToken")
+        const managerUser = await User.findOne({ email: managerEmail }).
+            select("-password -refreshToken")
         if (!managerUser) {
             throw new ApiError(404, "Manager not found with the provided email");
         }
@@ -68,8 +69,40 @@ const createClub = asyncHandler(async (req, res) => {
         throw new ApiError(500, error);
     }
 });
+const getPlayersByClub = asyncHandler(async (req, res) => {
+    try {
+        const userId = req.user._id; // Assuming user ID is set on req.user by your auth middleware
+        console.log(userId);
+
+        // Find the user by their ID
+        const user = await User.findById(userId).populate('club'); // Assuming 'club' is the field in the user model where the club ID is stored
+
+        // If user doesn't exist or isn't associated with a club
+        if (!user || !user.club) {
+            return res.status(404).json(new ApiResponse(404, null, "User or club not found"));
+        }
+
+        const clubId = user.club._id; // Get the club ID from the populated user data
+        console.log(clubId);
+
+        // Find all players associated with this club
+        const players = await Player.find({ associatedClub: clubId })
+            .select('playerName city phone email profilePicture DOB status jersyNo role battingStyle bowlingStyle');
+
+        if (!players.length) {
+            return res.status(404).json(new ApiResponse(404, null, "No players found for this club"));
+        }
+
+        return res.status(200).json(
+            new ApiResponse(200, players, "Players retrieved successfully")
+        );
+    } catch (error) {
+        throw new ApiError(500, error.message || "Server error");
+    }
+});
 
 
 export {
-    createClub
+    createClub,
+    getPlayersByClub
 }

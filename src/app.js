@@ -19,6 +19,7 @@ import tournamentRouter from './routes/tournament.routes.js'
 import teamRouter from './routes/team.routes.js'
 import playerRouter from './routes/player.routes.js'
 import clubRouter from './routes/club.routes.js'
+import { verifyJWT } from "./middlewares/auth.middleware.js"
 
 // app.use("/api/v1/", adminRouter)
 app.use("/api/users", userRouter)
