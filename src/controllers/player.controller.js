@@ -23,6 +23,7 @@ const createPlayer = asyncHandler(async (req, res) => {
 
         console.log(associatedClub);
 
+
         if (!playerName?.trim() || !DOB || !role?.trim()) {
             throw new ApiError(400, "Some Field are requires");
         }
@@ -61,9 +62,6 @@ const createPlayer = asyncHandler(async (req, res) => {
         throw new ApiError(500, error);
     }
 });
-
-
-
 
 const getAllPlayers = asyncHandler(async (req, res) => {
     try {

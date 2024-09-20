@@ -78,7 +78,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
 const getUserProfile = asyncHandler(async (req, res) => {
     const userId = req.params.id; // Get userId from URL params or auth middleware
-    console.log(userId);
+    console.log("userId", userId);
 
     // Fetch user details from the database
     const user = await User.findById(userId)

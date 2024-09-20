@@ -20,8 +20,6 @@ const createClub = asyncHandler(async (req, res) => {
             managerAddress,
             socialLink
         } = req.body;
-        console.log("body", req.body);
-        console.log(socialLink);
 
         // Find user by managerEmail
         const managerUser = await User.findOne({ email: managerEmail }).
@@ -71,23 +69,25 @@ const createClub = asyncHandler(async (req, res) => {
 });
 const getPlayersByClub = asyncHandler(async (req, res) => {
     try {
-        const userId = req.user._id; // Assuming user ID is set on req.user by your auth middleware
-        console.log(userId);
+        console.log("fsdf", req.params.id);
+
+        const clubId = req.params.id; // Assuming user ID is set on req.user by your auth middleware
 
         // Find the user by their ID
-        const user = await User.findById(userId).populate('club'); // Assuming 'club' is the field in the user model where the club ID is stored
+        // const user = await User.findById(userId).populate('club'); // Assuming 'club' is the field in the user model where the club ID is stored
+        // console.log("user", user);
 
-        // If user doesn't exist or isn't associated with a club
-        if (!user || !user.club) {
-            return res.status(404).json(new ApiResponse(404, null, "User or club not found"));
-        }
+        // // If user doesn't exist or isn't associated with a club
+        // if (!user || !user.club) {
+        //     return res.status(404).json(new ApiResponse(404, null, "User or club not found"));
+        // }
 
-        const clubId = user.club._id; // Get the club ID from the populated user data
-        console.log(clubId);
+        console.log("clubId", clubId);
 
         // Find all players associated with this club
         const players = await Player.find({ associatedClub: clubId })
             .select('playerName city phone email profilePicture DOB status jersyNo role battingStyle bowlingStyle');
+        console.log(players);
 
         if (!players.length) {
             return res.status(404).json(new ApiResponse(404, null, "No players found for this club"));
@@ -100,9 +100,87 @@ const getPlayersByClub = asyncHandler(async (req, res) => {
         throw new ApiError(500, error.message || "Server error");
     }
 });
+const getClubs = asyncHandler(async (req, res) => {
+    try {
+        const registrationStatus = req.query.registrationStatus;
 
+        let query = {};
+        if (registrationStatus && registrationStatus !== 'all') {
+            query.registrationStatus = registrationStatus;
+        }
+
+        const clubs = await Club.find(query)
+            .populate('manager', 'email');
+        // .select('clubName type registrationStatus regDate'); // Adjust fields as needed
+
+        if (!clubs) {
+            throw new ApiError(404, "No Clubs found");
+        }
+
+        return res.status(200).json(
+            new ApiResponse(200, clubs, "Clubs retrieved successfully")
+        );
+    } catch (error) {
+        throw new ApiError(500, error.message || "Server error");
+    }
+});
+const approveClub = asyncHandler(async (req, res) => {
+    try {
+        const { clubId } = req.body;
+        console.log("clubId", clubId);
+
+
+        // Find the club by its ID
+        const club = await Club.findById(clubId);
+        if (!club) {
+            throw new ApiError(404, "Club not found");
+        }
+
+        // Update the registration status to 'approved'
+        club.registrationStatus = 'approved';
+        await Club.updateOne(
+            { _id: clubId },
+            { $unset: { rejectionReason: "" } } // Unset removes the field
+        );
+        await club.save();
+
+        return res.status(200).json(
+            new ApiResponse(200, club, "Club approved successfully")
+        );
+    } catch (error) {
+        throw new ApiError(500, error.message || "Server error");
+    }
+});
+const rejectClub = asyncHandler(async (req, res) => {
+    try {
+        const { clubId, reason } = req.body;
+        console.log("clubId", clubId);
+        console.log("reason", reason);
+
+        // Find the club by its ID
+        const club = await Club.findById(clubId);
+        if (!club) {
+            throw new ApiError(404, "Club not found");
+        }
+
+        // Update the registration status to 'rejected' and store the rejection reason
+        club.registrationStatus = 'rejected';
+        club.rejectionReason = reason; // Assuming you have a field for rejection reason
+        await club.save();
+
+        return res.status(200).json(
+            new ApiResponse(200, club, "Club rejected successfully")
+        );
+    } catch (error) {
+        throw new ApiError(500, error.message || "Server error");
+    }
+});
 
 export {
     createClub,
-    getPlayersByClub
+    getPlayersByClub,
+    getClubs,
+    approveClub,
+    rejectClub,
+
 }

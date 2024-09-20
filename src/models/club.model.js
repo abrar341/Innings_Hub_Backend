@@ -14,7 +14,7 @@ const clubSchema = new Schema(
         location: {
             type: String,
             required: true,
-            trim: true
+            trim: true,
         },
         yearEstablished: {
             type: String,
@@ -23,27 +23,33 @@ const clubSchema = new Schema(
         manager: {
             type: Schema.Types.ObjectId,
             ref: 'User',
-            required: true
+            required: true,
         },
         registrationStatus: {
             type: String,
             enum: ['pending', 'approved', 'rejected'],
-            default: 'pending'
+            default: 'pending',
+        },
+        rejectionReason: {
+            type: String,
+            required: function () {
+                return this.registrationStatus === 'rejected';
+            },
         },
         teams: [{
             type: Schema.Types.ObjectId,
-            ref: 'Team'
+            ref: 'Team',
         }],
         players: [{
             type: Schema.Types.ObjectId,
-            ref: 'Player'
+            ref: 'Player',
         }],
         socialLink: {
             type: String,
-        }
+        },
     },
     {
-        timestamps: true
+        timestamps: true,
     }
 );
 
