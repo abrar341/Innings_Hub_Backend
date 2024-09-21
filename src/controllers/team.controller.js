@@ -10,11 +10,9 @@ const createTeam = asyncHandler(async (req, res) => {
         const {
             teamName,
             shortName,
-            location,
             teamtype,
+            associatedClub,
         } = req.body;
-        console.log("body", req.body);
-        console.log("files", req.files);
         const existingTeam = await Team.findOne({ $or: [{ teamName }, { shortName }] });
         if (existingTeam) {
             throw new ApiError(409, "Team with the same name or short name already exists");
@@ -31,17 +29,15 @@ const createTeam = asyncHandler(async (req, res) => {
             teamLogoLocalPath = req.files.teamLogo[0].path;
         }
         const teamLogo = await uploadOnCloudinary(teamLogoLocalPath);
-        console.log(teamLogo);
 
         const sanitizedData = {
             teamLogo: teamLogo?.url.trim() || "",
             teamName: teamName?.trim(),
             shortName: shortName?.trim(),
-            location: location?.trim(),
+            associatedClub: associatedClub,
             teamtype: teamtype?.trim(),
         };
 
-        console.log("sanitizedData", sanitizedData);
         const team = new Team(sanitizedData);
         await team.save();
 
@@ -60,9 +56,7 @@ const updateTeam = asyncHandler(async (req, res) => {
 
         const { id } = req.params;
         const { teamName, shortName, location, teamtype } = req.body;
-        console.log(req.files);
 
-        console.log(req.body);
         if (!teamName?.trim() || !shortName?.trim() || !teamtype?.trim()) {
             throw new ApiError(400, "Name, shortName, and teamtype are required");
         }
@@ -86,7 +80,6 @@ const updateTeam = asyncHandler(async (req, res) => {
             teamLogoLocalPath = req.files.teamLogo[0].path;
         }
         const teamLogo = await uploadOnCloudinary(teamLogoLocalPath);
-        console.log(teamLogo);
 
         team.teamLogo = teamLogo?.url.trim() || team.teamLogo;
         team.teamName = teamName.trim();
@@ -105,6 +98,8 @@ const updateTeam = asyncHandler(async (req, res) => {
     }
 });
 const getAllTeams = asyncHandler(async (req, res) => {
+    console.log("hello");
+
     try {
         const teams = await Team.find().select("-__v"); // Exclude the `__v` field
 
@@ -146,5 +141,5 @@ export {
     createTeam,
     updateTeam,
     deleteTeam,
-    getAllTeams
+    getAllTeams,
 }

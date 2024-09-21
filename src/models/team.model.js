@@ -20,25 +20,25 @@ const teamSchema = new Schema({
         trim: true
     },
     // Team owner information
-    owner: {
-        type: String,
-        trim: true
+    associatedClub: {
+        type: Schema.Types.ObjectId,
+        ref: 'Club',
     },
     // Coach of the team
     coach: {
         type: String,
         trim: true
     },
-    location: {
-        type: String,
-        trim: true
-    },
     teamtype: {
         type: String,
-        trim: true
-
-        // enum: ['Club-level', 'School', 'Other'],
+        trim: true,
+        enum: ['senior', 'junior', 'other'],
         // default: 'Club', // Adjust based on your app's requirements
+    },
+    status: {
+        type: String,
+        enum: ['Active', 'inActive'],
+        default: 'inActive'
     },
     // Team captain information
     captain: {

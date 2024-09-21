@@ -7,6 +7,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { User } from "../models/user.model.js";
 import { Player } from "../models/player.model.js";
+import { Team } from "../models/team.model.js";
 
 
 const createClub = asyncHandler(async (req, res) => {
@@ -100,6 +101,24 @@ const getPlayersByClub = asyncHandler(async (req, res) => {
         throw new ApiError(500, error.message || "Server error");
     }
 });
+const getTeamsByClub = asyncHandler(async (req, res) => {
+    try {
+        const clubId = req.params.id; // Get clubId from request parameters
+        console.log(clubId);
+
+        // Fetch teams associated with the club
+        const teams = await Team.find({ associatedClub: clubId })
+            .populate('associatedClub', 'clubName'); // Optionally populate associated club details
+
+        if (!teams || teams.length === 0) {
+            throw new ApiError(404, "No teams found for the specified club");
+        }
+
+        return res.status(200).json(new ApiResponse(200, teams, "Teams fetched successfully"));
+    } catch (error) {
+        throw new ApiError(500, error.message || "Error fetching teams");
+    }
+});
 const getClubs = asyncHandler(async (req, res) => {
     try {
         const registrationStatus = req.query.registrationStatus;
@@ -179,6 +198,7 @@ const rejectClub = asyncHandler(async (req, res) => {
 export {
     createClub,
     getPlayersByClub,
+    getTeamsByClub,
     getClubs,
     approveClub,
     rejectClub,
