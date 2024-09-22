@@ -15,7 +15,7 @@ const registerUser = asyncHandler(async (req, res) => {
         confirmPassword,
         role } = req.body
 
-    console.log(req.body);
+    // console.log(req.body);
 
 
     if (
@@ -29,7 +29,7 @@ const registerUser = asyncHandler(async (req, res) => {
     })
 
     if (existedUser) {
-        console.log("existedUser", existedUser);
+        // console.log("existedUser", existedUser);
         if (existedUser.isVerified) {
             throw new ApiError(409, "User with email or username already exists");
         } else {
@@ -78,7 +78,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
 const getUserProfile = asyncHandler(async (req, res) => {
     const userId = req.params.id; // Get userId from URL params or auth middleware
-    console.log("userId", userId);
+    // console.log("userId", userId);
 
     // Fetch user details from the database
     const user = await User.findById(userId)
@@ -100,7 +100,7 @@ const getUserProfile = asyncHandler(async (req, res) => {
 
 export const verifyEmail = asyncHandler(async (req, res) => {
     const { code, email } = req.body; // Capture email and code from the user input
-    console.log(req.body);
+    // console.log(req.body);
 
     if (!email || !code) {
         throw new ApiError(400, "Email and verification code are required");
@@ -133,7 +133,7 @@ export const verifyEmail = asyncHandler(async (req, res) => {
             }, "Email verified successfully")
         );
     } catch (error) {
-        console.error("Error in verifyEmail:", error);
+        // console.error("Error in verifyEmail:", error);
         throw new ApiError(500, "Server error occurred while verifying the email");
     }
 });
@@ -153,7 +153,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
 
         return { accessToken, refreshToken };
     } catch (error) {
-        console.error('Error generating tokens:', error);
+        // console.error('Error generating tokens:', error);
 
         throw new ApiError(500, "Something went wrong while generating refresh and access token");
     }
@@ -161,7 +161,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
 
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
-    console.log(req.body);
+    // console.log(req.body);
 
     if (!email || !password) {
         throw new ApiError(401, 'Email and Password required');
@@ -190,7 +190,7 @@ const loginUser = asyncHandler(async (req, res) => {
         .populate({
             path: 'club', // Assuming clubId is the reference field in the user schema
         });
-    console.log(loggedInUser);
+    // console.log(loggedInUser);
 
     const options = {
         httpOnly: true,

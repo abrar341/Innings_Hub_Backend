@@ -47,7 +47,7 @@ const createClub = asyncHandler(async (req, res) => {
             manager: managerUser._id // Set manager reference to the found user's ID
         };
 
-        console.log("sanitizedData", sanitizedData);
+        // console.log("sanitizedData", sanitizedData);
         const club = new Club(sanitizedData);
         await club.save();
 
@@ -64,31 +64,31 @@ const createClub = asyncHandler(async (req, res) => {
             new ApiResponse(201, { user, createdClub }, "Club Registered for Approval successfully")
         );
     } catch (error) {
-        console.error("Error creating club:", error);
+        // console.error("Error creating club:", error);
         throw new ApiError(500, error);
     }
 });
 const getPlayersByClub = asyncHandler(async (req, res) => {
     try {
-        console.log("fsdf", req.params.id);
+        // console.log("fsdf", req.params.id);
 
         const clubId = req.params.id; // Assuming user ID is set on req.user by your auth middleware
 
         // Find the user by their ID
         // const user = await User.findById(userId).populate('club'); // Assuming 'club' is the field in the user model where the club ID is stored
-        // console.log("user", user);
+        // // console.log("user", user);
 
         // // If user doesn't exist or isn't associated with a club
         // if (!user || !user.club) {
         //     return res.status(404).json(new ApiResponse(404, null, "User or club not found"));
         // }
 
-        console.log("clubId", clubId);
+        // console.log("clubId", clubId);
 
         // Find all players associated with this club
         const players = await Player.find({ associatedClub: clubId })
             .select('playerName city phone email profilePicture DOB status jersyNo role battingStyle bowlingStyle');
-        console.log(players);
+        // console.log(players);
 
         if (!players.length) {
             return res.status(404).json(new ApiResponse(404, null, "No players found for this club"));
@@ -104,7 +104,7 @@ const getPlayersByClub = asyncHandler(async (req, res) => {
 const getTeamsByClub = asyncHandler(async (req, res) => {
     try {
         const clubId = req.params.id; // Get clubId from request parameters
-        console.log(clubId);
+        // console.log(clubId);
 
         // Fetch teams associated with the club
         const teams = await Team.find({ associatedClub: clubId })
@@ -146,7 +146,7 @@ const getClubs = asyncHandler(async (req, res) => {
 const approveClub = asyncHandler(async (req, res) => {
     try {
         const { clubId } = req.body;
-        console.log("clubId", clubId);
+        // console.log("clubId", clubId);
 
 
         // Find the club by its ID
@@ -173,8 +173,8 @@ const approveClub = asyncHandler(async (req, res) => {
 const rejectClub = asyncHandler(async (req, res) => {
     try {
         const { clubId, reason } = req.body;
-        console.log("clubId", clubId);
-        console.log("reason", reason);
+        // console.log("clubId", clubId);
+        // console.log("reason", reason);
 
         // Find the club by its ID
         const club = await Club.findById(clubId);

@@ -21,7 +21,7 @@ const createPlayer = asyncHandler(async (req, res) => {
             associatedClub
         } = req.body;
 
-        console.log(associatedClub);
+        // console.log(associatedClub);
 
 
         if (!playerName?.trim() || !DOB || !role?.trim()) {
@@ -53,7 +53,7 @@ const createPlayer = asyncHandler(async (req, res) => {
         await player.save();
         const createdPlayer = await Player.findById(player._id)
             .select('playerName city phone email profilePicture DOB jersyNo role battingStyle bowlingStyle');
-        console.log("createdPlayer", createdPlayer);
+        // console.log("createdPlayer", createdPlayer);
 
         return res.status(201).json(
             new ApiResponse(201, createdPlayer, "Player created successfully")
@@ -75,14 +75,14 @@ const getAllPlayers = asyncHandler(async (req, res) => {
         );
 
     } catch (error) {
-        console.error("Error fetching players:", error);
+        // console.error("Error fetching players:", error);
         throw new ApiError(500, "An error occurred while fetching players");
     }
 });
 const updatePlayer = asyncHandler(async (req, res) => {
     try {
         const { id } = req.params;
-        console.log(`Player ID: ${id}`);
+        // console.log(`Player ID: ${id}`);
 
         const {
             playerName,
@@ -95,7 +95,7 @@ const updatePlayer = asyncHandler(async (req, res) => {
             battingStyle,
             bowlingStyle,
         } = req.body; // This will contain text fields
-        console.log(req.body);
+        // console.log(req.body);
 
         if (!playerName?.trim() || !DOB || !role?.trim()) {
             throw new ApiError(400, "Some fields are required");
@@ -129,13 +129,13 @@ const updatePlayer = asyncHandler(async (req, res) => {
         player.bowlingStyle = bowlingStyle?.trim() || player.bowlingStyle;
 
         const updatedPlayer = await player.save();
-        console.log("Updated Player:", updatedPlayer);
+        // console.log("Updated Player:", updatedPlayer);
 
         return res.status(200).json(
             new ApiResponse(200, updatedPlayer, "Player updated successfully")
         );
     } catch (error) {
-        console.error("Error updating player:", error);
+        // console.error("Error updating player:", error);
         throw new ApiError(500, error.message || "An error occurred while updating the player");
     }
 });
@@ -144,7 +144,7 @@ const updatePlayer = asyncHandler(async (req, res) => {
 const deletePlayer = asyncHandler(async (req, res) => {
     try {
         const { id } = req.params;
-        console.log(id);
+        // console.log(id);
 
         // Find the player by ID
         const player = await Player.findById(id);

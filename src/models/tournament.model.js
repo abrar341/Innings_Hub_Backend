@@ -94,6 +94,10 @@ const tournamentSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'Team',
     }],
+    squads: [{
+        type: Schema.Types.ObjectId,
+        ref: 'Squad',
+    }],
     schedule: {
         type: Schema.Types.ObjectId,
         ref: 'Schedule',

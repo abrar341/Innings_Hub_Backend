@@ -22,7 +22,7 @@ const createTeam = asyncHandler(async (req, res) => {
         //     teamLogoLocalPath = req.files.teamLogo[0].path;
         // }
         // const teamLogo = await uploadOnCloudinary(teamLogoLocalPath);
-        // console.log("teamLogo", teamLogo);
+        // // console.log("teamLogo", teamLogo);
 
         let teamLogoLocalPath;
         if (req.files && Array.isArray(req.files.teamLogo) && req.files.teamLogo.length > 0) {
@@ -98,7 +98,7 @@ const updateTeam = asyncHandler(async (req, res) => {
     }
 });
 const getAllTeams = asyncHandler(async (req, res) => {
-    console.log("hello");
+    // console.log("hello");
 
     try {
         const teams = await Team.find().select("-__v"); // Exclude the `__v` field
@@ -111,7 +111,7 @@ const getAllTeams = asyncHandler(async (req, res) => {
             new ApiResponse(200, teams, "Teams fetched successfully")
         );
     } catch (error) {
-        console.error("Error fetching teams:", error);
+        // console.error("Error fetching teams:", error);
         throw new ApiError(500, "An error occurred while fetching teams");
     }
 });

@@ -1,6 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { Tournament } from "../models/tournament.model.js";
 import { Squad } from "../models/squad.model.js";
+import { Team } from "../models/team.model.js";
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
@@ -30,7 +31,6 @@ const createTournament = asyncHandler(async (req, res) => {
         ballType,
         tournamentType,
     } = req.body;
-    console.log(req.body);
 
 
     if (!inputName?.trim() || !shortName?.trim() || !ballType?.trim() || !tournamentType?.trim()) {
@@ -45,7 +45,6 @@ const createTournament = asyncHandler(async (req, res) => {
 
 
     let imageLocalPath;
-    console.log(imageLocalPath);
 
     if (req.files && Array.isArray(req.files.image) && req.files.image.length > 0) {
         imageLocalPath = req.files.image[0].path
@@ -63,7 +62,6 @@ const createTournament = asyncHandler(async (req, res) => {
         tournamentType,
         image: image?.url || "",
     };
-    console.log(tournamentData)
     const tournament = await Tournament.create(tournamentData);
     if (!tournament) {
         throw new ApiError(400, "Tournament creation failed");
@@ -85,9 +83,6 @@ const updateTournament = asyncHandler(async (req, res) => {
         ballType,
         tournamentType,
     } = req.body;
-
-    console.log(req.body);
-    console.log(req.files);
 
     if (!inputName?.trim() || !shortName?.trim() || !ballType?.trim() || !tournamentType?.trim()) {
         throw new ApiError(400, "Name, shortName, ballType, and tournamentType are required");
@@ -140,7 +135,6 @@ const updateTournament = asyncHandler(async (req, res) => {
 const deleteTournament = asyncHandler(async (req, res) => {
 
     const { id } = req.params;
-    console.log(id);
 
     const tournament = await Tournament.findById(id);
     if (!tournament) {
@@ -194,45 +188,10 @@ const getConcludedTournaments = asyncHandler(async (req, res) => {
     );
 });
 
-
-
-// const uploadTeam = asyncHandler(async (req, res) => {
-//     const { tournamentId, teamId } = req.body
-//     const tournament = await Tournament.findById(tournamentId);
-//     const team = await Team.findById(teamId)
-//     if (!team) {
-//         throw new ApiError(400, "Team not Found ")
-//     }
-
-//     if (!tournament) {
-//         throw new ApiError(400, "Tournament not Found ")
-//     }
-
-//     if (tournament.teams.includes(teamId)) {
-//         throw new ApiError(400, "Team Already Added")
-//     }
-
-//     const TeamAdd = await Tournament.updateOne(
-//         { _id: tournamentId },
-//         { $push: { teams: teamId } }
-//     );
-
-//     const squad = await Squad.create({
-//         team: teamId,
-//         tournament: tournamentId
-//     })
-
-//     console.log(squad);
-
-//     return res.status(201).json(
-//         new ApiResponse(200, TeamAdd, "Team Added Successfully")
-//     )
-
-
-// })
-
 const addTeamsToTournaments = asyncHandler(async (req, res) => {
     const { tournamentId, teamIds } = req.body;
+    console.log(req.body);
+
 
     // Validate required fields
     if (!tournamentId || !teamIds || !Array.isArray(teamIds) || teamIds.length === 0) {
@@ -245,25 +204,12 @@ const addTeamsToTournaments = asyncHandler(async (req, res) => {
         throw new ApiError(404, "Tournament not found");
     }
 
-    // Filter out teams that are already part of the tournament
-    const existingTeams = tournament.teams.map(team => team.toString());
-    const newTeams = teamIds.filter(teamId => !existingTeams.includes(teamId));
+    // Add new teams to the tournament's teams array directly
+    tournament.teams.push(...teamIds);
 
-    // Check if all teams are already part of the tournament
-    if (newTeams.length === 0) {
-        throw new ApiError(400, "All provided teams are already in the tournament");
-    }
-
-    // Add new teams to the tournament's teams array
-    tournament.teams.push(...newTeams);
-
-    // Save the updated tournament
-    await tournament.save();
-    console.log("Tournament updated with new teams:", newTeams);
-
-    // Create squads for each new team added to the tournament
+    // Create squads for each team being added
     const createdSquads = [];
-    for (const teamId of newTeams) {
+    for (const teamId of teamIds) {
         try {
             const squad = new Squad({
                 name: `${tournament.name} - Squad for Team ${teamId}`, // Adjust the naming convention as needed
@@ -274,24 +220,98 @@ const addTeamsToTournaments = asyncHandler(async (req, res) => {
 
             // Save each squad to the database
             await squad.save();
-            console.log("Created squad for team:", teamId);
+            // console.log("Created squad for team:", teamId);
             createdSquads.push(squad);
+
+            // Add squad _id to the tournament's squads array
+            tournament.squads.push(squad._id);
         } catch (error) {
-            console.error(`Failed to create squad for team ${teamId}:`, error);
+            // console.error(`Failed to create squad for team ${teamId}:`, error);
             throw new ApiError(500, `Failed to create squad for team ${teamId}`);
         }
     }
+
+    // Save the updated tournament
+    await tournament.save();
+    // console.log("Tournament updated with new squads:", createdSquads);
 
     // Return the success response with the updated tournament and created squads
     return res.status(201).json(
         new ApiResponse(201, { tournament, squads: createdSquads }, "Teams added to tournament and squads created successfully")
     );
 });
+const removeTeamFromTournament = asyncHandler(async (req, res) => {
+    const { tournamentId, squadId } = req.body;
+    console.log(squadId);
 
+
+    // Validate required fields
+    if (!tournamentId || !squadId) {
+        throw new ApiError(400, 'Tournament ID and Squad ID are required');
+    }
+
+    // Find the tournament by ID
+    const tournament = await Tournament.findById(tournamentId);
+    if (!tournament) {
+        throw new ApiError(404, 'Tournament not found');
+    }
+
+    // Check if the squad exists in the tournament's squads array
+    const squadIndex = tournament.squads.indexOf(squadId);
+    if (squadIndex === -1) {
+        throw new ApiError(404, 'Squad not found in this tournament');
+    }
+
+    // Remove the squad ID from the tournament's squads array
+    tournament.squads.splice(squadIndex, 1);
+
+    // Save the updated tournament
+    await tournament.save();
+
+    // Delete the squad document from the Squad collection
+    const squad = await Squad.findById(squadId);
+    if (!squad) {
+        throw new ApiError(404, 'Squad not found');
+    }
+
+    await squad.deleteOne();
+
+    // Send a success response
+    res.status(200).json(new ApiResponse(200, { squadId: squad._id }, 'Team removed from tournament and squad deleted successfully'));
+});
+const getAvailableTeamsForTournament = asyncHandler(async (req, res) => {
+    const { tournamentId } = req.params;
+
+    // Validate the tournament ID
+    if (!tournamentId) {
+        throw new ApiError(400, "Tournament ID is required");
+    }
+
+    // Find the tournament by ID
+    const tournament = await Tournament.findById(tournamentId).populate('squads');
+    if (!tournament) {
+        throw new ApiError(404, "Tournament not found");
+    }
+    // console.log(tournament);
+
+
+    // Extract the team IDs from the squads in the tournament
+    const teamIdsInSquads = tournament.squads.map(squad => squad.team.toString());
+    // console.log(teamIdsInSquads);
+
+    // Fetch all teams
+    const allTeams = await Team.find();
+
+    // Filter out teams that are already in the squads of the tournament
+    const teamsNotInTournament = allTeams.filter(team => !teamIdsInSquads.includes(team._id.toString()));
+
+    // Return the teams that are not yet part of the tournament
+    return res.status(200).json(new ApiResponse(200, teamsNotInTournament, "Teams not in the tournament retrieved successfully"));
+});
 
 const getSingleTournamentDetail = asyncHandler(async (req, res) => {
     const { id } = req.params;  // Get the tournament ID from the request parameters
-    console.log("id", id);
+    // console.log("id", id);
 
     try {
         const tournament = await Tournament.findById(id);  // Fetch the tournament from the database
@@ -311,39 +331,19 @@ const getSingleTournamentDetail = asyncHandler(async (req, res) => {
         throw new ApiError(500, "An error occurred while fetching tournament details");
     }
 });
+const getSingleTournamentSquads = asyncHandler(async (req, res) => {
+    const { tournamentId } = req.params; // Extract tournamentId from request parameters
+    console.log("tournamentId", tournamentId);
 
+    // Fetch squads associated with the given tournament ID
+    const squads = await Squad.find({ tournament: tournamentId }).populate('team');
+    console.log(squads);
+    // Return the squads in the response
+    return res.status(200).json(
+        new ApiResponse(200, squads, "Squads retrieved successfully")
+    );
+});
 
-
-// const removeTeamFromTournament = asyncHandler(async (req, res) => {
-//     const { tournamentId, teamId } = req.body;
-
-//     const tournament = await Tournament.findById(tournamentId);
-//     const team = await Team.findById(teamId);
-
-//     if (!team) {
-//         throw new ApiError(400, "Team not found");
-//     }
-
-//     if (!tournament) {
-//         throw new ApiError(400, "Tournament not found");
-//     }
-
-//     if (!tournament.teams.includes(teamId)) {
-//         throw new ApiError(400, "Team is not associated with the tournament");
-//     }
-
-//     const updatedTournament = await Tournament.findByIdAndUpdate(
-//         tournamentId,
-//         { $pull: { teams: teamId } },
-//         { new: true }
-//     );
-
-//     await Squad.deleteMany({ tournament: tournamentId, team: teamId });
-
-//     return res.status(200).json(
-//         new ApiResponse(200, updatedTournament, "Team removed from tournament successfully")
-//     );
-// });
 export {
     createTournament,
     updateTournament,
@@ -353,7 +353,10 @@ export {
     getOngoingTournaments,
     getConcludedTournaments,
     addTeamsToTournaments,
-    getSingleTournamentDetail
+    getSingleTournamentDetail,
+    getAvailableTeamsForTournament,
+    removeTeamFromTournament,
+    getSingleTournamentSquads
     // uploadTeam,
     // uploadTeams,
     // removeTeamFromTournament
