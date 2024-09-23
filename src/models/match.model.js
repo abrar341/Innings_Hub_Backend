@@ -2,10 +2,6 @@
 import mongoose from "mongoose";
 
 const matchSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true
-    },
     teams: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Team',
@@ -15,73 +11,30 @@ const matchSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    currentOver: {
-        type: Number,
-        default: 0
-    },
-    currentBall: {
-        type: Number,
-        default: 0
-    },
-    totalRuns: {
-        type: Number,
-        default: 0
-    },
-    totalWickets: {
-        type: Number,
-        default: 0
-    },
-    battingTeam: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Team',
+    venue: {
+        type: String,
         required: true
     },
-    bowlingTeam: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Team',
+    date: {
+        type: Date,
         required: true
     },
-    currentBatsmen: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Player',
+    time: {
+        type: String,
         required: true
-    }],
-
-    batsmanStats: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'BatsmanStats',
-        required: true
-    }],
-    bowlerStats: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'BowlerStats',
-        required: true
-    }],
-
-    currentBowler: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Player',
+    },
+    round: {
+        type: String,
         required: true
     },
     status: {
         type: String,
-        enum: ['not-started', 'in-progress', 'completed'],
-        default: 'not-started'
+        enum: ['scheduled', 'live', 'completed'],
+        default: 'scheduled'
     },
-    isLive: {
-        type: Boolean,
-        default: false
-    },
-    startTime: {
-        type: Date,
-        required: true
-    },
-    endTime: {
-        type: Date
-    },
-    createdBy: {
+    tournament: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: 'Tournament',
         required: true
     }
 }, {

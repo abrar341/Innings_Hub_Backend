@@ -5,18 +5,18 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { Squad } from "../models/squad.model.js";
 
 
-export const addPlayerToSquad = asyncHandler(async (req, res) => {
-    const { tournamentId, teamId, playerIds } = req.body;
+const addPlayerToSquad = asyncHandler(async (req, res) => {
+    const { squadId, playerIds } = req.body;
 
     // Validate required fields
-    if (!tournamentId || !teamId || !playerIds || !Array.isArray(playerIds) || playerIds.length === 0) {
-        throw new ApiError(400, "Tournament ID, Team ID, and Player IDs are required");
+    if (!squadId || !playerIds || !Array.isArray(playerIds) || playerIds.length === 0) {
+        throw new ApiError(400, "Squad ID and Player IDs are required");
     }
 
-    // Find the squad matching the tournamentId and teamId
-    const squad = await Squad.findOne({ tournament: tournamentId, team: teamId });
+    // Find the squad by squadId
+    const squad = await Squad.findById(squadId);
     if (!squad) {
-        throw new ApiError(404, "Squad not found for the specified tournament and team");
+        throw new ApiError(404, "Squad not found");
     }
 
     // Add players to the squad, ensuring no duplicates
@@ -39,6 +39,7 @@ export const addPlayerToSquad = asyncHandler(async (req, res) => {
     );
 });
 
+
 export const getAllSquads = asyncHandler(async (req, res) => {
     // Fetch all squads from the database
     const squads = await Squad.find().populate('team tournament players');
@@ -52,3 +53,5 @@ export const getAllSquads = asyncHandler(async (req, res) => {
         new ApiResponse(200, squads, "Squads retrieved successfully")
     );
 });
+
+export { addPlayerToSquad };
