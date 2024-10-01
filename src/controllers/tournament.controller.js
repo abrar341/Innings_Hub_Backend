@@ -439,6 +439,29 @@ const getTeamsInTournament = asyncHandler(async (req, res) => {
     // Return the teams that are part of the tournament
     return res.status(200).json(new ApiResponse(200, { teams: teamsInTournament, venues: tournament.venues }, "Teams in the tournament retrieved successfully"));
 });
+const getSquadPlayers = asyncHandler(async (req, res) => {
+    const { tournamentId, teamId } = req.params;
+    console.log(tournamentId, teamId);
+
+
+    try {
+        // Fetch squads that match the tournamentId and teamId
+        const squads = await Squad.find({ tournament: tournamentId, team: teamId })
+            .populate('players', 'name role profilePicture playerName') // Populating player details if necessary
+            .populate('team', 'name logo') // Optionally populate team details
+            .populate('tournament', 'name'); // Optionally populate tournament details
+
+        if (!squads || squads.length === 0) {
+            return res.status(404).json(new ApiResponse(404, null, 'No squads found for this tournament and team.'));
+        }
+
+        // Send the squads back as a response
+        res.status(200).json(new ApiResponse(200, squads, 'Squads fetched successfully.'));
+    } catch (error) {
+        // Handle any errors that occur during the query
+        throw new ApiError(500, error.message || 'Internal Server Error');
+    }
+});
 export {
     createTournament,
     updateTournament,
@@ -454,5 +477,6 @@ export {
     getSingleTournamentSquads,
     getAvailablePlayersForTournament,
     removePlayerFromSquad,
-    getTeamsInTournament
+    getTeamsInTournament,
+    getSquadPlayers
 }
