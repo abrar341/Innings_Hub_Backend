@@ -101,7 +101,7 @@ io.on('connection', (socket) => {
     console.log(data);
 
     const {
-      matchId, fielder, bowlerId, RunOutruns, batsmanOut, event, batsmanId, overNumber, ballNumber,
+      matchId, fielder, bowlerId, RunOutruns, batsmanOut, nonStrikerbatsmanId, event, batsmanId, overNumber, ballNumber,
     } = data; // Destructure the required fields from the data
 
     try {
@@ -144,6 +144,8 @@ io.on('connection', (socket) => {
       if (!match) {
         throw new Error('Match not found');
       }
+
+
       let ballIsValid;
       let runScored;
       const currentInningIndex = match.currentInning - 1;
@@ -165,6 +167,9 @@ io.on('connection', (socket) => {
       let battingPerformance = currentInning?.battingPerformances.find(bp =>
         bp.player.equals(new mongoose.Types.ObjectId(batsmanId))
       );
+      let nonStrikerbattingPerformance = currentInning?.battingPerformances.find(bp =>
+        bp.player.equals(new mongoose.Types.ObjectId(nonStrikerbatsmanId))
+      );
       let newbattingPerformance;
       if (!battingPerformance) {
         newbattingPerformance = {
@@ -179,7 +184,6 @@ io.on('connection', (socket) => {
           fielder: null
         };
         currentInning.battingPerformances.push(newbattingPerformance);
-        console.log("here");
         match.markModified('innings');
 
         // Save the updated match document to the database
@@ -188,7 +192,6 @@ io.on('connection', (socket) => {
         let battingPerformance = currentInning.battingPerformances.find(bp =>
           bp.player.equals(new mongoose.Types.ObjectId(batsmanId))
         );
-        console.log("battingPerformance", battingPerformance);
 
       }
 
@@ -213,7 +216,7 @@ io.on('connection', (socket) => {
       }
       if (event.startsWith("6") || event.startsWith("4") || (event.startsWith("0")) || (event === 'Run Out') || (event === 'Bowled') || (event === 'LBW') || (event === 'Stumped')) {
         ballIsValid = true;
-        if (ballNumber === 5) {
+        if (ballNumber >= 5) {
           currentInning.previousBowler = currentInning.currentBowler;
           currentInning.currentBowler = null;
           currentOver = {
@@ -244,11 +247,10 @@ io.on('connection', (socket) => {
       }
       // fielder
       if (event.startsWith("0")) {
-        if (ballNumber === 5 && ballIsValid) {
+        if (ballNumber >= 5 && ballIsValid) {
           const temp = currentInning.currentStriker;
           currentInning.currentStriker = currentInning.nonStriker;
           currentInning.nonStriker = temp;
-          console.log("here");
         }
         runScored = 0;
         battingPerformance.ballsFaced += 1;
@@ -259,7 +261,7 @@ io.on('connection', (socket) => {
         ballIsValid = true;
 
         if (runs === 1 || runs === 3) {
-          if (ballNumber === 5 && ballIsValid) {
+          if (ballNumber >= 5 && ballIsValid) {
             currentOver.totalRuns += runs;
             currentOver.totalRuns += runs;
             battingPerformance.runs += runs;
@@ -285,7 +287,6 @@ io.on('connection', (socket) => {
             const temp = currentInning.currentStriker;
             currentInning.currentStriker = currentInning.nonStriker;
             currentInning.nonStriker = temp;
-            console.log("here");
             currentOver.totalRuns += runs;
             battingPerformance.runs += runs;
             battingPerformance.ballsFaced += 1;
@@ -302,28 +303,43 @@ io.on('connection', (socket) => {
           bowlingPerformance.balls += 1;
           currentInning.runs += runs;
           runScored = runs;
+
+          if (ballNumber >= 5 && ballIsValid) {
+            currentInning.previousBowler = currentInning.currentBowler;
+            currentInning.currentBowler = null;
+            currentOver = {
+              overNumber: overNumber + 1, // Set over number correctly
+              balls: [],
+              totalRuns: 0,
+              wickets: 0,
+              extras: 0,
+              bowler: bowlerId, // Replace with actual bowler ID
+            };
+            currentInning.overs.push(currentOver);
+          }
+
         }
       }
       if (event.startsWith("-5")) {      //bye runs
         const runs = parseInt(event.slice(2));
-        currentInning.previousBowler = currentInning.currentBowler;
-        currentInning.currentBowler = null;
-        currentOver = {
-          overNumber: overNumber + 1, // Set over number correctly
-          balls: [],
-          totalRuns: 0,
-          wickets: 0,
-          extras: 0,
-          bowler: bowlerId, // Replace with actual bowler ID
-        };
-        currentInning.overs.push(currentOver);
+
 
         bowlingPerformance.runsConceded += runs;
         bowlingPerformance.balls += 1;
 
         if (runs === 1 || runs === 3) {
-          if (ballNumber === 5 && ballIsValid) {
-            console.log("strike double change");
+          if (ballNumber >= 5 && ballIsValid) {
+            currentInning.previousBowler = currentInning.currentBowler;
+            currentInning.currentBowler = null;
+            currentOver = {
+              overNumber: overNumber + 1, // Set over number correctly
+              balls: [],
+              totalRuns: 0,
+              wickets: 0,
+              extras: 0,
+              bowler: bowlerId, // Replace with actual bowler ID
+            };
+            currentInning.overs.push(currentOver);
           }
           else {
             const temp = currentInning.currentStriker;
@@ -338,7 +354,6 @@ io.on('connection', (socket) => {
 
         currentInning.runs += runs;
 
-        console.log(runs);
       }
       if (event.startsWith("-2")) {       //wide ball
 
@@ -347,7 +362,6 @@ io.on('connection', (socket) => {
         runScored = runs;
         currentInning.runs += runs;
 
-        console.log(runs);
       }
       if (event.startsWith("-3")) {        //no ball
 
@@ -356,38 +370,35 @@ io.on('connection', (socket) => {
         currentOver.totalRuns += runs;
         currentInning.runs += runs;
 
-        console.log(runs);
       }
       if (event === 'Run Out') {
+        console.log("nonStrikerbattingPerformance", nonStrikerbattingPerformance);
         currentInning.fallOfWickets.push({
           runs: currentInning.runs + RunOutruns,
           over: overNumber,
           ball: ballNumber + 1,
           batsmanOut: batsmanId
         });
-
         currentInning.wickets += 1;
         bowlingPerformance.balls += 1;
+        battingPerformance.runs += RunOutruns;
+        battingPerformance.ballsFaced += 1;
         // Bowled dismissal (batting)
-        console.log('Batsman is Bowled');
         runScored = 0;
-
-
-        // Update the batsman's performance
-        battingPerformance.isOut = true;
-        battingPerformance.dismissalType = 'Run Out';
-        battingPerformance.bowler = bowlerId;
-
         // Update the bowler's performance (wicket)
         bowlingPerformance.wickets += 1;
         if (batsmanOut === 'striker') {
+          battingPerformance.isOut = true;
+          battingPerformance.dismissalType = 'Caught';
+          battingPerformance.fielder = fielder;
           currentInning.currentStriker = null; // Striker needs to be replaced
         }
         if (batsmanOut === "non-striker") {
-          currentInning.currentStriker = null; // Striker needs to be replaced
-          const temp = currentInning.currentStriker;
-          currentInning.currentStriker = currentInning.nonStriker;
-          currentInning.nonStriker = temp;
+          nonStrikerbattingPerformance.isOut = true;
+          nonStrikerbattingPerformance.dismissalType = 'Caught';
+          nonStrikerbattingPerformance.fielder = fielder;
+          currentInning.nonStriker = currentInning.currentStriker;
+          currentInning.currentStriker = null;
         }
 
       }
@@ -405,7 +416,6 @@ io.on('connection', (socket) => {
         // Bowled dismissal (batting)
         console.log('Batsman is Bowled');
         runScored = 0;
-        console.log("currentInning", currentInning);
 
 
         // Update the batsman's performance
@@ -428,7 +438,6 @@ io.on('connection', (socket) => {
         bowlingPerformance.balls += 1;
         // Bowled dismissal (batting)
         runScored = 0;
-        console.log("currentInning", currentInning);
 
 
         // Update the batsman's performance
@@ -454,7 +463,6 @@ io.on('connection', (socket) => {
         // Bowled dismissal (batting)
         console.log('Batsman is Bowled');
         runScored = 0;
-        console.log("currentInning", currentInning);
 
 
         // Update the batsman's performance
@@ -545,7 +553,6 @@ io.on('connection', (socket) => {
         // Bowled dismissal (batting)
         console.log('Batsman is Bowled');
         runScored = 0;
-        console.log("currentInning", currentInning);
 
 
         // Update the batsman's performance
@@ -832,7 +839,7 @@ io.on('connection', (socket) => {
       );
       if (!bowlingPerformance) {
         // If not found, create a new bowling performance
-        let bowlingPerformance = {
+        let newbowlingPerformance = {
           player: bowlerId,
           overs: 0,
           balls: 0,
@@ -842,7 +849,7 @@ io.on('connection', (socket) => {
           wides: 0,
           economy: 0
         };
-        currentInning.bowlingPerformances.push(bowlingPerformance);
+        currentInning.bowlingPerformances.push(newbowlingPerformance);
       }
       // Save the match
       await match.save();

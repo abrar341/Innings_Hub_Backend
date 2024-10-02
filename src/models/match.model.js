@@ -201,6 +201,11 @@ const matchSchema = new mongoose.Schema({
             type: mongoose.Schema.Types.ObjectId,
             ref: "Team",
         },
+        by: {
+            type: String, // Margin of victory (e.g., "20 runs" or "5 wickets")
+            enum: ["runs", "wickets"],
+
+        },
         margin: {
             type: String, // Margin of victory (e.g., "20 runs" or "5 wickets")
         },

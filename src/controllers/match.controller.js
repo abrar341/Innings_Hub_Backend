@@ -197,15 +197,7 @@ const startMatch = asyncHandler(async (req, res) => {
                     total: 0,
                 },
                 fallOfWickets: [],
-                battingPerformances: playing11.find(p11 => p11.team?.toString() === firstInningTeam._id?.toString())?.players.map(playerId => ({
-                    player: playerId,
-                    runs: 0,
-                    ballsFaced: 0,
-                    fours: 0,
-                    sixes: 0,
-                    strikeRate: 0,
-                    isOut: false
-                })),
+                battingPerformances: [],
                 bowlingPerformances: [],
             },
             {
@@ -221,15 +213,7 @@ const startMatch = asyncHandler(async (req, res) => {
                     total: 0,
                 },
                 fallOfWickets: [],
-                battingPerformances: playing11.find(p11 => p11.team?.toString() === secondInningTeam._id?.toString())?.players?.map(playerId => ({
-                    player: playerId,
-                    runs: 0,
-                    ballsFaced: 0,
-                    fours: 0,
-                    sixes: 0,
-                    strikeRate: 0,
-                    isOut: false
-                })),
+                battingPerformances: [],
                 bowlingPerformances: [],
             }
         ];
@@ -440,6 +424,10 @@ const initializePlayers = asyncHandler(async (req, res) => {
 
         // Add striker and non-striker to battingPerformances if not already present
         currentInning.battingPerformances = currentInning.battingPerformances || [];
+        // Ensure battingPerformances is an array
+        currentInning.battingPerformances = currentInning.battingPerformances || [];
+
+        // Check for the striker and add if not already present
         if (!currentInning.battingPerformances.some(b => b.player.toString() === striker.toString())) {
             currentInning.battingPerformances.push({
                 player: striker,
@@ -451,6 +439,8 @@ const initializePlayers = asyncHandler(async (req, res) => {
                 isOut: false
             });
         }
+
+        // Check for the non-striker and add if not already present
         if (!currentInning.battingPerformances.some(b => b.player.toString() === nonStriker.toString())) {
             currentInning.battingPerformances.push({
                 player: nonStriker,
@@ -461,6 +451,7 @@ const initializePlayers = asyncHandler(async (req, res) => {
                 strikeRate: 0,
                 isOut: false
             });
+
         }
 
         // Add bowler to bowlingPerformances if not already present
