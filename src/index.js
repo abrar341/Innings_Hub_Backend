@@ -75,7 +75,7 @@ io.on('connection', (socket) => {
         })
         .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
         .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
-        .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' });
+        .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' });
 
       //
       console.log(match);
@@ -140,11 +140,56 @@ io.on('connection', (socket) => {
         })
         .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
         .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
-        .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' });
+        .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' });
       if (!match) {
         throw new Error('Match not found');
       }
+      // Function to check and update match result after every ball
+      const checkForWinner = async (match) => {
 
+        const firstInning = match.innings[0]; // Assuming two innings (0 for first, 1 for second)
+        const secondInning = match.innings[1];
+
+        // Scenario 1: Limited Overs Match (One team bats second, and we check if they've won or lost)
+        if (secondInning) {
+          console.log("secondInning", match.innings[1].runs);
+          const target = match.innings[0].runs + 1;
+          const secondInningRuns = match.innings[1].runs;
+          const secondInningWickets = secondInning.wickets;
+          const maxWickets = 10; // Assuming 10 wickets in an inning
+
+          // If team batting second has more runs, they win
+          if (match.innings[1].runs >= match.innings[0].runs + 1) {
+            match.result = {
+              winner: secondInning.team, // Assuming `team` references the current team
+              by: 'wickets',
+              margin: `${maxWickets - secondInningWickets} wickets`, // e.g., "5 wickets"
+              isTie: false
+            };
+            match.status = 'completed';
+          }
+          // If team batting second is all out and hasn't reached the target, team 1 wins
+          else if (secondInningWickets >= maxWickets && match.innings[1].runs < match.innings[0].runs + 1) {
+            match.result = {
+              winner: firstInning.team,
+              by: 'runs',
+              margin: `${match.innings[0].runs + 1 - match.innings[1].runs} runs`, // e.g., "20 runs"
+              isTie: false
+            };
+          }
+        }
+
+        // Scenario 2: Tie Condition (Exact equal scores, all wickets lost)
+        if (match.innings[1].runs === match.innings[0].runs + 1 && secondInningWickets >= maxWickets) {
+          match.result = {
+            isTie: true,
+          };
+        }
+        // Save the match with the updated result
+        await match.save();
+      };
+      // socket.join(matchId);
+      // console.log(`User joined match room: ${matchId}`);
 
       let ballIsValid;
       let runScored;
@@ -198,6 +243,8 @@ io.on('connection', (socket) => {
       let bowlingPerformance = currentInning.bowlingPerformances.find(bp =>
         bp.player.equals(new mongoose.Types.ObjectId(bowlerId))
       );
+      console.log("bowlingPerformance", bowlingPerformance);
+
       if (!bowlingPerformance) {
         let newbowlingPerformance = {
           player: bowlerId,
@@ -227,10 +274,10 @@ io.on('connection', (socket) => {
             extras: 0,
             bowler: bowlerId, // Replace with actual bowler ID
           };
+          currentInning.overs.push(currentOver);
           const temp = currentInning.currentStriker;
           currentInning.currentStriker = currentInning.nonStriker;
           currentInning.nonStriker = temp;
-          currentInning.overs.push(currentOver);
         }
         else if (!currentOver || currentOver.balls.length >= 6) {
           // Fallback to create new over if the current over is not defined or already full (6 valid balls)
@@ -259,10 +306,8 @@ io.on('connection', (socket) => {
       if (event.startsWith("-8")) {    //running between wickets
         const runs = parseInt(event.slice(2));
         ballIsValid = true;
-
         if (runs === 1 || runs === 3) {
           if (ballNumber >= 5 && ballIsValid) {
-            currentOver.totalRuns += runs;
             currentOver.totalRuns += runs;
             battingPerformance.runs += runs;
             battingPerformance.ballsFaced += 1;
@@ -322,11 +367,14 @@ io.on('connection', (socket) => {
       }
       if (event.startsWith("-5")) {      //bye runs
         const runs = parseInt(event.slice(2));
-
-
         bowlingPerformance.runsConceded += runs;
         bowlingPerformance.balls += 1;
-
+        battingPerformance.ballsFaced += 1;
+        bowlingPerformance.runs += runs;
+        currentOver.totalRuns += runs;
+        runScored = runs;
+        ballIsValid = true;
+        currentInning.runs += runs;
         if (runs === 1 || runs === 3) {
           if (ballNumber >= 5 && ballIsValid) {
             currentInning.previousBowler = currentInning.currentBowler;
@@ -347,21 +395,14 @@ io.on('connection', (socket) => {
             currentInning.nonStriker = temp;
           }
         }
-        battingPerformance.ballsFaced += 1;
-        bowlingPerformance.runs += runs;
-        currentOver.totalRuns += runs;
-        runScored = runs;
 
-        currentInning.runs += runs;
 
       }
       if (event.startsWith("-2")) {       //wide ball
-
         const runs = parseInt(event.slice(2));
         currentOver.totalRuns += runs;
         runScored = runs;
         currentInning.runs += runs;
-
       }
       if (event.startsWith("-3")) {        //no ball
 
@@ -695,6 +736,9 @@ io.on('connection', (socket) => {
       // // Push the new ball to the current over
       currentOver.balls.push(newBall);
 
+      // if (ballIsValid) {
+      //   bowlingPerformance.balls += 1
+      // }
       // // Update over and inning stats
       // if (wickets === 1) {
       //   currentOver.wickets += wickets;
@@ -764,6 +808,47 @@ io.on('connection', (socket) => {
 
       // Save the updated match
       const m1 = await match.save();
+
+      await Match.findById(matchId).populate('innings.team innings.battingPerformances innings.bowlingPerformances').populate({
+        path: 'teams',
+      }).populate({
+        path: 'teams',
+      })
+        .populate({
+          path: 'playing11.team',  // Populate the team field in playing11
+          model: 'Team' // The reference model is 'Team'
+        })
+        .populate({
+          path: 'playing11.players', // Populate the players array in playing11
+          model: 'Player' // The reference model is 'Player'
+        })
+        .populate({
+          path: 'innings.nonStriker',
+          model: 'Player'
+        })
+        .populate({
+          path: 'innings.currentBowler',
+          model: 'Player'
+        })
+        .populate({
+          path: 'innings.currentStriker',
+          model: 'Player'
+        })
+        .populate({
+          path: 'innings.previousBowler',
+          model: 'Player'
+        })
+        .populate({
+          path: 'innings.team',
+          model: 'Team'
+        })
+        .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
+        .populate('innings.bowlingPerformances.player').populate({
+          path: 'innings.fallOfWickets.batsmanOut', model: 'Player', select: 'playerName' // Replace with the fields you want to populate
+        })
+      await checkForWinner(match)
+      console.log("m1", m1.innings[0].fallOfWickets);
+      console.log("match", match.innings[0].fallOfWickets);
 
       // Emit the updated match data to all clients in the room (matchId)
       io.to(matchId).emit('newBall', m1);

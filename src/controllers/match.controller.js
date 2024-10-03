@@ -107,6 +107,7 @@ const getMatchById = asyncHandler(async (req, res) => {
 const startMatch = asyncHandler(async (req, res) => {
     const { matchId } = req.params;
     const { tossWinner, tossDecision, playing11 } = req.body;
+    console.log(req.body);
 
     console.log(matchId);
 
@@ -181,6 +182,7 @@ const startMatch = asyncHandler(async (req, res) => {
             : match.teams.find(team => team._id?.toString() !== tossWinner?.toString());
         const secondInningTeam = match.teams.find(team => team._id?.toString() !== firstInningTeam._id?.toString());
         console.log("firstInningTeam", firstInningTeam);
+        console.log("secondInningsTea,", secondInningTeam);
 
         // Initialize the innings data based on the toss decision
         match.innings = [
@@ -227,7 +229,7 @@ const startMatch = asyncHandler(async (req, res) => {
         // Save the updated match
         await match.save();
 
-        match = await Match.findById(matchId).populate('teams')
+        await Match.findById(matchId).populate('teams')
 
             .populate({
                 path: 'teams',
@@ -469,6 +471,15 @@ const initializePlayers = asyncHandler(async (req, res) => {
             });
         }
 
+        let currentOver = {
+            overNumber: 1, // Set over number correctly
+            balls: [],
+            totalRuns: 0,
+            wickets: 0,
+            extras: 0,
+            bowler: bowler, // Replace with actual bowler ID
+        };
+        currentInning.overs.push(currentOver);
         // Save the match
         await match.save();
 
