@@ -381,6 +381,8 @@ const initializePlayers = asyncHandler(async (req, res) => {
             .populate({
                 path: 'playing11.team',  // Populate the team field in playing11
                 model: 'Team' // The reference model is 'Team'
+            }).populate({
+                path: 'tournament',
             })
             .populate({
                 path: 'playing11.players', // Populate the players array in playing11
@@ -511,6 +513,8 @@ const getAllMatches = asyncHandler(async (req, res) => {
             .populate({
                 path: 'playing11.players',
                 model: 'Player'
+            }).populate({
+                path: 'tournament',
             });
 
         // If no matches are found

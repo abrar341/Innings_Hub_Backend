@@ -109,6 +109,8 @@ io.on('connection', (socket) => {
         path: 'teams',
       }).populate({
         path: 'teams',
+      }).populate({
+        path: 'tournament',
       })
         .populate({
           path: 'playing11.team',  // Populate the team field in playing11
@@ -430,13 +432,13 @@ io.on('connection', (socket) => {
         bowlingPerformance.wickets += 1;
         if (batsmanOut === 'striker') {
           battingPerformance.isOut = true;
-          battingPerformance.dismissalType = 'Caught';
+          battingPerformance.dismissalType = 'run out';
           battingPerformance.fielder = fielder;
           currentInning.currentStriker = null; // Striker needs to be replaced
         }
         if (batsmanOut === "non-striker") {
           nonStrikerbattingPerformance.isOut = true;
-          nonStrikerbattingPerformance.dismissalType = 'Caught';
+          nonStrikerbattingPerformance.dismissalType = 'run out';
           nonStrikerbattingPerformance.fielder = fielder;
           currentInning.nonStriker = currentInning.currentStriker;
           currentInning.currentStriker = null;
@@ -882,6 +884,9 @@ io.on('connection', (socket) => {
           model: 'Player'
         })
         .populate({
+          path: 'tournament',
+        })
+        .populate({
           path: 'innings.currentBowler',
           model: 'Player'
         })
@@ -956,6 +961,9 @@ io.on('connection', (socket) => {
         .populate('innings.team innings.battingPerformances innings.bowlingPerformances')
         .populate({
           path: 'teams',
+        })
+        .populate({
+          path: 'tournament',
         })
         .populate({
           path: 'playing11.team',  // Populate the team field in playing11
@@ -1039,6 +1047,8 @@ io.on('connection', (socket) => {
         .populate('innings.team innings.battingPerformances innings.bowlingPerformances')
         .populate({
           path: 'teams',
+        }).populate({
+          path: 'tournament',
         })
         .populate({
           path: 'playing11.team',
@@ -1081,7 +1091,6 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: 'Failed to start new innings' });
     }
   });
-
   // Handling disconnection
   socket.on('disconnect', () => {
     console.log('A user disconnected');
