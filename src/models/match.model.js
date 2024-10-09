@@ -24,7 +24,7 @@ const ballSchema = new mongoose.Schema({
         extras: {
             type: {
                 type: String,
-                enum: ['none', 'wide', 'no-ball', 'bye', 'leg-bye'], // Added bye and leg-bye
+                enum: ['none', 'w', 'nb', 'bye', 'lb'], // Added bye and leg-bye
                 default: 'none'
             },
             runs: { type: Number, default: 0 } // Runs from extras
@@ -44,6 +44,7 @@ const ballSchema = new mongoose.Schema({
         }
     },
     isOut: { type: Boolean, default: false }, // Marks whether the batsman is out on this ball
+    isBoundary: { type: Boolean, default: false },
     isValidBall: { type: Boolean, default: true }, // Marks whether this is a valid delivery (i.e., not wide or no-ball)
 });
 

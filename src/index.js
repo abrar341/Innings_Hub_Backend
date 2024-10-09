@@ -78,7 +78,6 @@ io.on('connection', (socket) => {
         .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' });
 
       //
-      console.log(match);
 
       if (!match) {
         return socket.emit('error', 'Match not found');
@@ -151,17 +150,17 @@ io.on('connection', (socket) => {
 
         const firstInning = match.innings[0]; // Assuming two innings (0 for first, 1 for second)
         const secondInning = match.innings[1];
+        const maxOvers = match.overs;
 
         // Scenario 1: Limited Overs Match (One team bats second, and we check if they've won or lost)
         if (secondInning) {
-          console.log("secondInning", match.innings[1].runs);
           const target = match.innings[0].runs + 1;
           const secondInningRuns = match.innings[1].runs;
           const secondInningWickets = secondInning.wickets;
           const maxWickets = 10; // Assuming 10 wickets in an inning
 
           // If team batting second has more runs, they win
-          if (match.innings[1].runs >= match.innings[0].runs + 1) {
+          if (match.innings[1].runs > match.innings[0].runs + 1) {
             match.result = {
               winner: secondInning.team, // Assuming `team` references the current team
               by: 'wickets',
@@ -178,15 +177,29 @@ io.on('connection', (socket) => {
               margin: `${match.innings[0].runs + 1 - match.innings[1].runs} runs`, // e.g., "20 runs"
               isTie: false
             };
+            match.status = 'completed';
+
+          }
+          else if (match.innings[1].overs.length + 1 > maxOvers && match.innings[1].runs < match.innings[0].runs + 1) {
+            match.result = {
+              winner: firstInning.team,
+              by: 'runs',
+              margin: `${match.innings[0].runs + 1 - match.innings[1].runs} runs`, // e.g., "20 runs"
+              isTie: false
+            };
+            match.status = 'completed';
+
+          }
+          // Scenario 2: Tie Condition (Exact equal scores, all wickets lost)
+          if (match.innings[1].runs === match.innings[0].runs && secondInningWickets >= maxWickets || match.innings[1].runs === match.innings[0].runs && match.innings[1].overs.length + 1 > maxOvers) {
+            match.result = {
+              isTie: true,
+            };
+            match.status = 'completed';
+
           }
         }
 
-        // Scenario 2: Tie Condition (Exact equal scores, all wickets lost)
-        if (match.innings[1].runs === match.innings[0].runs + 1 && secondInningWickets >= maxWickets) {
-          match.result = {
-            isTie: true,
-          };
-        }
         // Save the match with the updated result
         await match.save();
       };
@@ -195,12 +208,15 @@ io.on('connection', (socket) => {
 
       let ballIsValid;
       let runScored;
+      let isWicket;
+      let boundary;
+      let extraT;
       const currentInningIndex = match.currentInning - 1;
       const currentInning = match.innings[currentInningIndex];
       let currentOver = currentInning.overs[currentInning.overs.length - 1];
 
       if (!currentOver) {
-        currentOver = {
+        let newOver = {
           overNumber: overNumber + 1, // Set over number correctly
           balls: [],
           totalRuns: 0,
@@ -208,7 +224,7 @@ io.on('connection', (socket) => {
           extras: 0,
           bowler: bowlerId, // Replace with actual bowler ID
         };
-        currentInning.overs.push(currentOver);
+        currentInning.overs.push(newOver);
       }
 
       let battingPerformance = currentInning?.battingPerformances.find(bp =>
@@ -245,7 +261,6 @@ io.on('connection', (socket) => {
       let bowlingPerformance = currentInning.bowlingPerformances.find(bp =>
         bp.player.equals(new mongoose.Types.ObjectId(bowlerId))
       );
-      console.log("bowlingPerformance", bowlingPerformance);
 
       if (!bowlingPerformance) {
         let newbowlingPerformance = {
@@ -263,12 +278,12 @@ io.on('connection', (socket) => {
           bp.player.equals(new mongoose.Types.ObjectId(bowlerId))
         );
       }
-      if (event.startsWith("6") || event.startsWith("4") || (event.startsWith("0")) || (event === 'Run Out') || (event === 'Bowled') || (event === 'LBW') || (event === 'Stumped')) {
+      if (event.startsWith("6") || event.startsWith("4") || (event.startsWith("0")) || (event === 'Run Out') || (event === 'Caught') || (event === 'Bowled') || (event === 'LBW') || (event === 'Stumped')) {
         ballIsValid = true;
         if (ballNumber >= 5) {
           currentInning.previousBowler = currentInning.currentBowler;
           currentInning.currentBowler = null;
-          currentOver = {
+          let newOver = {
             overNumber: overNumber + 1, // Set over number correctly
             balls: [],
             totalRuns: 0,
@@ -276,14 +291,14 @@ io.on('connection', (socket) => {
             extras: 0,
             bowler: bowlerId, // Replace with actual bowler ID
           };
-          currentInning.overs.push(currentOver);
+          currentInning.overs.push(newOver);
           const temp = currentInning.currentStriker;
           currentInning.currentStriker = currentInning.nonStriker;
           currentInning.nonStriker = temp;
         }
-        else if (!currentOver || currentOver.balls.length >= 6) {
+        else if (!currentOver) {
           // Fallback to create new over if the current over is not defined or already full (6 valid balls)
-          currentOver = {
+          let newOver = {
             overNumber: overNumber + 1,
             balls: [],
             totalRuns: 0,
@@ -291,7 +306,7 @@ io.on('connection', (socket) => {
             extras: 0,
             bowler: bowlerId,
           };
-          currentInning.overs.push(currentOver);
+          currentInning.overs.push(newOver);
         }
       }
       // fielder
@@ -320,7 +335,7 @@ io.on('connection', (socket) => {
 
             currentInning.previousBowler = currentInning.currentBowler;
             currentInning.currentBowler = null;
-            currentOver = {
+            let newOver = {
               overNumber: overNumber + 1, // Set over number correctly
               balls: [],
               totalRuns: 0,
@@ -328,7 +343,7 @@ io.on('connection', (socket) => {
               extras: 0,
               bowler: bowlerId, // Replace with actual bowler ID
             };
-            currentInning.overs.push(currentOver);
+            currentInning.overs.push(newOver);
           }
           else {
             const temp = currentInning.currentStriker;
@@ -354,7 +369,7 @@ io.on('connection', (socket) => {
           if (ballNumber >= 5 && ballIsValid) {
             currentInning.previousBowler = currentInning.currentBowler;
             currentInning.currentBowler = null;
-            currentOver = {
+            let newOver = {
               overNumber: overNumber + 1, // Set over number correctly
               balls: [],
               totalRuns: 0,
@@ -362,26 +377,27 @@ io.on('connection', (socket) => {
               extras: 0,
               bowler: bowlerId, // Replace with actual bowler ID
             };
-            currentInning.overs.push(currentOver);
+            currentInning.overs.push(newOver);
           }
 
         }
       }
-      if (event.startsWith("-5")) {      //bye runs
+      if (event.startsWith("-5")) {
+        extraT = "lb"; //bye runs
         const runs = parseInt(event.slice(2));
+        ballIsValid = true;
         bowlingPerformance.runsConceded += runs;
         bowlingPerformance.balls += 1;
         battingPerformance.ballsFaced += 1;
         bowlingPerformance.runs += runs;
         currentOver.totalRuns += runs;
         runScored = runs;
-        ballIsValid = true;
         currentInning.runs += runs;
         if (runs === 1 || runs === 3) {
           if (ballNumber >= 5 && ballIsValid) {
             currentInning.previousBowler = currentInning.currentBowler;
             currentInning.currentBowler = null;
-            currentOver = {
+            let newOver = {
               overNumber: overNumber + 1, // Set over number correctly
               balls: [],
               totalRuns: 0,
@@ -389,7 +405,7 @@ io.on('connection', (socket) => {
               extras: 0,
               bowler: bowlerId, // Replace with actual bowler ID
             };
-            currentInning.overs.push(currentOver);
+            currentInning.overs.push(newOver);
           }
           else {
             const temp = currentInning.currentStriker;
@@ -397,17 +413,33 @@ io.on('connection', (socket) => {
             currentInning.nonStriker = temp;
           }
         }
+        else {
+          if (ballNumber >= 5 && ballIsValid) {
+            currentInning.previousBowler = currentInning.currentBowler;
+            currentInning.currentBowler = null;
+            let newOver = {
+              overNumber: overNumber + 1, // Set over number correctly
+              balls: [],
+              totalRuns: 0,
+              wickets: 0,
+              extras: 0,
+              bowler: bowlerId, // Replace with actual bowler ID
+            };
+            currentInning.overs.push(newOver);
+          }
+        }
 
 
       }
-      if (event.startsWith("-2")) {       //wide ball
+      if (event.startsWith("-2")) {
+        extraT = "w";     //wide ball
         const runs = parseInt(event.slice(2));
         currentOver.totalRuns += runs;
         runScored = runs;
         currentInning.runs += runs;
       }
       if (event.startsWith("-3")) {        //no ball
-
+        extraT = 'nb';
         const runs = parseInt(event.slice(2));
         runScored = runs;
         currentOver.totalRuns += runs;
@@ -415,7 +447,7 @@ io.on('connection', (socket) => {
 
       }
       if (event === 'Run Out') {
-        console.log("nonStrikerbattingPerformance", nonStrikerbattingPerformance);
+        isWicket = true;
         currentInning.fallOfWickets.push({
           runs: currentInning.runs + RunOutruns,
           over: overNumber,
@@ -446,7 +478,12 @@ io.on('connection', (socket) => {
 
       }
 
+
+
       if (event === 'Caught') {
+        // Caught dismissal (batting)
+        isWicket = true;
+        console.log('Batsman is Caught');
         currentInning.fallOfWickets.push({
           runs: currentInning.runs,
           over: overNumber,
@@ -455,21 +492,23 @@ io.on('connection', (socket) => {
         });
         currentInning.currentStriker = null; // Striker needs to be replaced
         currentInning.wickets += 1;
-        bowlingPerformance.balls += 1;
-        // Bowled dismissal (batting)
-        console.log('Batsman is Bowled');
-        runScored = 0;
-
-
         // Update the batsman's performance
+        battingPerformance.ballsFaced += 1;
         battingPerformance.isOut = true;
         battingPerformance.dismissalType = 'Caught';
         battingPerformance.bowler = bowlerId;
+        battingPerformance.fielder = fielder;
 
         // Update the bowler's performance (wicket)
         bowlingPerformance.wickets += 1;
+        bowlingPerformance.balls += 1;
+        runScored = 0;
+
       }
+
+
       if (event === 'Stumped') {
+        isWicket = true;
         currentInning.fallOfWickets.push({
           runs: currentInning.runs,
           over: overNumber,
@@ -494,6 +533,7 @@ io.on('connection', (socket) => {
         console.log("Stumped");
       }
       if (event === 'LBW') {
+        isWicket = true;
         currentInning.fallOfWickets.push({
           runs: currentInning.runs,
           over: overNumber,
@@ -558,6 +598,7 @@ io.on('connection', (socket) => {
 
       // Update boundary stats for the batsman
       if (event.startsWith("4")) {
+        boundary = true;
         runScored = 4;
         currentOver.totalRuns += 4;
 
@@ -570,6 +611,7 @@ io.on('connection', (socket) => {
         battingPerformance.fours += 1;
       }
       if (event.startsWith("6")) {
+        boundary = true;
         runScored = 6;
         currentOver.totalRuns += 6;
 
@@ -584,6 +626,7 @@ io.on('connection', (socket) => {
       }
 
       if (event === 'Bowled') {
+        isWicket = true;
         currentInning.fallOfWickets.push({
           runs: currentInning.runs,
           over: overNumber,
@@ -593,6 +636,8 @@ io.on('connection', (socket) => {
         currentInning.currentStriker = null; // Striker needs to be replaced
         currentInning.wickets += 1;
         bowlingPerformance.balls += 1;
+        battingPerformance.ballsFaced += 1;
+
         // Bowled dismissal (batting)
         console.log('Batsman is Bowled');
         runScored = 0;
@@ -606,29 +651,11 @@ io.on('connection', (socket) => {
         // Update the bowler's performance (wicket)
         bowlingPerformance.wickets += 1;
 
-      } if (event === 'Caught') {
-        // Caught dismissal (batting)
-        console.log('Batsman is Caught');
-        currentInning.fallOfWickets.push({
-          runs: currentInning.runs,
-          over: overNumber,
-          ball: ballNumber + 1,
-          batsmanOut: batsmanId
-        });
-        currentInning.currentStriker = null; // Striker needs to be replaced
-        currentInning.wickets += 1;
-        bowlingPerformance.balls += 1;
-        // Update the batsman's performance
-        battingPerformance.isOut = true;
-        battingPerformance.dismissalType = 'Caught';
-        battingPerformance.bowler = bowlerId;
-        battingPerformance.fielder = fielder;
+      }
 
-        // Update the bowler's performance (wicket)
-        bowlingPerformance.wickets += 1;
-        bowlingPerformance.balls += 1;
 
-      } if (event === 'Stumped') {
+
+      if (event === 'Stumped') {
         // Stumped dismissal (batting)
         console.log('Batsman is Stumped');
         currentInning.fallOfWickets.push({
@@ -727,9 +754,19 @@ io.on('connection', (socket) => {
         ballNumber: adjustedBallNumber, // Increment for valid ball
         runs: {
           scored: runScored,
-          extras: 0,
+          extras: {
+            type: extraT,
+            // {
+            //     enum: ['none', 'w', 'nb', 'bye', 'lb'], // Added bye and leg-bye
+            // },
+            // }
+          },
+
+
         },
-        isOut: false,
+        // isboundary
+        isOut: isWicket || false,
+        isBoundary: boundary,
         bowlerId: bowlerId,
         batsmanId: batsmanId,
         isValidBall: ballIsValid,
@@ -811,49 +848,102 @@ io.on('connection', (socket) => {
       // Save the updated match
       const m1 = await match.save();
 
-      await Match.findById(matchId).populate('innings.team innings.battingPerformances innings.bowlingPerformances').populate({
-        path: 'teams',
-      }).populate({
-        path: 'teams',
-      })
-        .populate({
-          path: 'playing11.team',  // Populate the team field in playing11
-          model: 'Team' // The reference model is 'Team'
-        })
-        .populate({
-          path: 'playing11.players', // Populate the players array in playing11
-          model: 'Player' // The reference model is 'Player'
-        })
-        .populate({
-          path: 'innings.nonStriker',
-          model: 'Player'
-        })
-        .populate({
-          path: 'innings.currentBowler',
-          model: 'Player'
-        })
-        .populate({
-          path: 'innings.currentStriker',
-          model: 'Player'
-        })
-        .populate({
-          path: 'innings.previousBowler',
-          model: 'Player'
-        })
-        .populate({
-          path: 'innings.team',
-          model: 'Team'
-        })
-        .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
-        .populate('innings.bowlingPerformances.player').populate({
-          path: 'innings.fallOfWickets.batsmanOut', model: 'Player', select: 'playerName' // Replace with the fields you want to populate
-        })
-      await checkForWinner(match)
-      console.log("m1", m1.innings[0].fallOfWickets);
-      console.log("match", match.innings[0].fallOfWickets);
+      // await Match.findById(matchId).populate('innings.team innings.battingPerformances innings.bowlingPerformances').populate({
+      //   path: 'teams',
+      // }).populate({
+      //   path: 'teams',
+      // })
+      //   .populate({
+      //     path: 'playing11.team',  // Populate the team field in playing11
+      //     model: 'Team' // The reference model is 'Team'
+      //   })
+      //   .populate({
+      //     path: 'playing11.players', // Populate the players array in playing11
+      //     model: 'Player' // The reference model is 'Player'
+      //   })
+      //   .populate({
+      //     path: 'innings.nonStriker',
+      //     model: 'Player'
+      //   })
+      //   .populate({
+      //     path: 'innings.currentBowler',
+      //     model: 'Player'
+      //   })
+      //   .populate({
+      //     path: 'innings.currentStriker',
+      //     model: 'Player'
+      //   })
+      //   .populate({
+      //     path: 'innings.previousBowler',
+      //     model: 'Player'
+      //   })
+      //   .populate({
+      //     path: 'innings.team',
+      //     model: 'Team'
+      //   })
+      //   .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
+      //   .populate('innings.bowlingPerformances.player').populate({
+      //     path: 'innings.fallOfWickets.batsmanOut', model: 'Player', select: 'playerName' // Replace with the fields you want to populate
+      //   })
+      // console.log("match.innings[1].overs.length", match.innings[1].overs.length);
+
+      await checkForWinner(m1)
 
       // Emit the updated match data to all clients in the room (matchId)
-      io.to(matchId).emit('newBall', m1);
+
+
+
+      try {
+        // const m = await match.save();
+
+        const populatedMatch = await Match.findById(matchId)
+          .populate({
+            path: 'teams',
+          })
+          .populate({
+            path: 'playing11.team',  // Populate the team field in playing11
+            model: 'Team' // The reference model is 'Team'
+          })
+          .populate({
+            path: 'playing11.players', // Populate the players array in playing11
+            model: 'Player' // The reference model is 'Player'
+          })
+          .populate({
+            path: 'innings.nonStriker',
+            model: 'Player'
+          })
+          .populate({
+            path: 'innings.currentBowler',
+            model: 'Player'
+          })
+          .populate({
+            path: 'innings.currentStriker',
+            model: 'Player'
+          })
+          .populate({
+            path: 'innings.previousBowler',
+            model: 'Player'
+          })
+          .populate({
+            path: 'innings.team',
+            model: 'Team'
+          })
+          .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
+          .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
+          .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' });
+
+
+
+        // Emit the updated match data to all clients after successful population
+        io.to(matchId).emit('newBall', populatedMatch);
+        // io.to(matchId).emit('newBall', m1);
+
+      } catch (error) {
+        console.error("Error occurred:", error); // Log any errors
+      }
+
+
+
 
     } catch (error) {
       console.error('Error updating match:', error.message);
@@ -862,7 +952,7 @@ io.on('connection', (socket) => {
   });
   socket.on('newBowler', async (data) => {
     const { matchId, bowlerId } = data;
-    console.log(data);
+    console.log("new bowler1", bowlerId);
 
 
     try {
@@ -942,10 +1032,58 @@ io.on('connection', (socket) => {
         currentInning.bowlingPerformances.push(newbowlingPerformance);
       }
       // Save the match
-      await match.save();
+      try {
+        const m = await match.save();
 
-      // Emit the updated match data to all clients
-      io.to(matchId).emit('newBowlerAssigned', match);
+        const populatedMatch = await Match.findById(matchId)
+          .populate({
+            path: 'teams',
+          })
+          .populate({
+            path: 'playing11.team',  // Populate the team field in playing11
+            model: 'Team' // The reference model is 'Team'
+          })
+          .populate({
+            path: 'playing11.players', // Populate the players array in playing11
+            model: 'Player' // The reference model is 'Player'
+          })
+          .populate({
+            path: 'innings.nonStriker',
+            model: 'Player'
+          })
+          .populate({
+            path: 'tournament',
+          })
+          .populate({
+            path: 'innings.currentBowler',
+            model: 'Player'
+          })
+          .populate({
+            path: 'innings.currentStriker',
+            model: 'Player'
+          })
+          .populate({
+            path: 'innings.previousBowler',
+            model: 'Player'
+          })
+          .populate({
+            path: 'innings.team',
+            model: 'Team'
+          })
+          .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
+          .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
+          .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' });
+
+
+        console.log("Populated match:", populatedMatch); // Check if match is populated
+
+        // Emit the updated match data to all clients after successful population
+        io.to(matchId).emit('newBowlerAssigned', populatedMatch);
+
+      } catch (error) {
+        console.error("Error occurred:", error); // Log any errors
+      }
+
 
     } catch (error) {
       console.error('Error assigning new bowler:', error.message);
@@ -1030,7 +1168,59 @@ io.on('connection', (socket) => {
       await match.save();
 
       // Emit the updated match data to all clients
-      io.to(matchId).emit('newBatsmanAssigned', match);
+
+      try {
+        const m = await match.save();
+
+        const populatedMatch = await Match.findById(matchId)
+          .populate({
+            path: 'teams',
+          })
+          .populate({
+            path: 'playing11.team',  // Populate the team field in playing11
+            model: 'Team' // The reference model is 'Team'
+          })
+          .populate({
+            path: 'playing11.players', // Populate the players array in playing11
+            model: 'Player' // The reference model is 'Player'
+          })
+          .populate({
+            path: 'innings.nonStriker',
+            model: 'Player'
+          })
+          .populate({
+            path: 'tournament',
+          })
+          .populate({
+            path: 'innings.currentBowler',
+            model: 'Player'
+          })
+          .populate({
+            path: 'innings.currentStriker',
+            model: 'Player'
+          })
+          .populate({
+            path: 'innings.previousBowler',
+            model: 'Player'
+          })
+          .populate({
+            path: 'innings.team',
+            model: 'Team'
+          })
+          .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
+          .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
+          .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' });
+
+
+        console.log("Populated match:", populatedMatch); // Check if match is populated
+
+        io.to(matchId).emit('newBatsmanAssigned', populatedMatch);
+        // Emit the updated match data to all clients after successful population
+        // io.to(matchId).emit('newBowlerAssigned', populatedMatch);
+
+      } catch (error) {
+        console.error("Error occurred:", error); // Log any errors
+      }
 
     } catch (error) {
       console.error('Error assigning new batsman:', error.message);
@@ -1079,12 +1269,68 @@ io.on('connection', (socket) => {
         match.currentInning = 1; // In case currentInning was never set, start from 1
       }
 
-
       // Save the updated match
       await match.save();
 
+
+
+      try {
+        // const m = await match.save();
+        // console.log("Match saved successfully:", m1); // Check if match is saved
+
+        const populatedMatch = await Match.findById(matchId)
+          .populate({
+            path: 'teams',
+          })
+          .populate({
+            path: 'playing11.team',  // Populate the team field in playing11
+            model: 'Team' // The reference model is 'Team'
+          })
+          .populate({
+            path: 'playing11.players', // Populate the players array in playing11
+            model: 'Player' // The reference model is 'Player'
+          })
+          .populate({
+            path: 'innings.nonStriker',
+            model: 'Player'
+          })
+          .populate({
+            path: 'innings.currentBowler',
+            model: 'Player'
+          })
+          .populate({
+            path: 'innings.currentStriker',
+            model: 'Player'
+          })
+          .populate({
+            path: 'innings.previousBowler',
+            model: 'Player'
+          })
+          .populate({
+            path: 'innings.team',
+            model: 'Team'
+          })
+          .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
+          .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
+          .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' });
+
+
+        console.log("Populated match:", populatedMatch); // Check if match is populated
+
+        // Emit the updated match data to all clients after successful population
+        io.to(matchId).emit('NewInningsStarted', populatedMatch);
+        // io.to(matchId).emit('newBall', populatedMatch);
+        // io.to(matchId).emit('newBall', m1);
+
+      } catch (error) {
+        console.error("Error occurred:", error); // Log any errors
+      }
+
+
+
+
+
       // Emit the updated match data to all clients
-      io.to(matchId).emit('NewInningsStarted', match);
 
     } catch (error) {
       console.error('Error starting new innings:', error.message);

@@ -4,6 +4,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { nanoid } from 'nanoid';  // Import nanoid to generate random strings
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { Team } from "../models/team.model.js";
 
 
 const createPlayer = asyncHandler(async (req, res) => {
@@ -162,9 +163,49 @@ const deletePlayer = asyncHandler(async (req, res) => {
         throw new ApiError(500, "An error occurred while deleting the player");
     }
 });
+const getAvailablePlayersForTeam = asyncHandler(async (req, res) => {
+    const { clubId } = req.params;
+    console.log(clubId);
+
+    // Validate the club ID
+    if (!clubId) {
+        throw new ApiError(400, "Club ID is required");
+    }
+
+    // Step 1: Find all teams associated with the club and populate their players
+    const teams = await Team.find({ associatedClub: clubId }).populate({
+        path: 'players', // Assuming that `players` field holds the players in a team
+        select: '_id'    // Only populate player IDs to minimize data transfer
+    });
+
+    // Collect all player IDs from all teams
+    const allPlayersInTeams = teams.reduce((allPlayerIds, team) => {
+        return allPlayerIds.concat(team.players.map(player => player._id.toString()));
+    }, []);
+
+    // Step 2: Find all players associated with the club
+    const clubPlayers = await Player.find({ associatedClub: clubId });
+
+    // Step 3: Filter the club's players by removing those already part of any team in the club
+    const availablePlayers = clubPlayers.filter(
+        player => !allPlayersInTeams.includes(player._id.toString())
+    );
+
+    console.log(availablePlayers.length);
+
+
+    // Return the available players
+    return res.status(200).json(new ApiResponse(
+        200,
+        availablePlayers,
+        "Available players for the club retrieved successfully"
+    ));
+});
+
 
 
 export {
+    getAvailablePlayersForTeam,
     createPlayer,
     updatePlayer,
     deletePlayer,

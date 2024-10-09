@@ -137,9 +137,73 @@ const deleteTeam = asyncHandler(async (req, res) => {
     }
 });
 
+const getSingleTeamDetail = asyncHandler(async (req, res) => {
+    const { id } = req.params;  // Get the team ID from the request parameters
+
+    try {
+        // Fetch the team from the database and populate the 'players' array
+        const team = await Team.findById(id).populate('players');
+
+        if (!team) {
+            throw new ApiError(404, "Team not found");
+        }
+
+        return res.status(200).json(
+            new ApiResponse(200, team, "Team details fetched successfully")
+        );
+    } catch (error) {
+        if (error.name === 'CastError') {
+            // Handle invalid ObjectId error
+            throw new ApiError(400, "Invalid team ID");
+        }
+        throw new ApiError(500, "An error occurred while fetching team details");
+    }
+});
+
+
+const addPlayerToTeam = asyncHandler(async (req, res) => {
+    const { teamId, playerIds } = req.body;
+    console.log(req.body);
+
+
+    // Validate required fields
+    if (!teamId || !playerIds || !Array.isArray(playerIds) || playerIds.length === 0) {
+        throw new ApiError(400, "Team ID and Player IDs are required");
+    }
+
+    // Find the team by teamId
+    const team = await Team.findById(teamId);
+    if (!team) {
+        throw new ApiError(404, "Team not found");
+    }
+
+    // Add players to the team, ensuring no duplicates
+    const existingPlayers = team.players.map(player => player.toString());
+    const newPlayers = playerIds.filter(playerId => !existingPlayers.includes(playerId));
+
+    if (newPlayers.length === 0) {
+        throw new ApiError(400, "All provided players are already in the team");
+    }
+
+    // Add the new players to the players array
+    team.players.push(...newPlayers);
+
+    // Save the updated team
+    await team.save();
+
+    // Return a success response with the updated team
+    return res.status(200).json(
+        new ApiResponse(200, team, "Players added to the team successfully")
+    );
+});
+
+
+
 export {
     createTeam,
     updateTeam,
     deleteTeam,
     getAllTeams,
+    getSingleTeamDetail,
+    addPlayerToTeam
 }

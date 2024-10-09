@@ -54,13 +54,110 @@ const createMatch = asyncHandler(async (req, res) => {
 const getMatchesByTournamentId = asyncHandler(async (req, res) => {
     try {
         const { tournamentId } = req.params;
+        console.log(req.params);
+
 
         const matches = await Match.find({ tournament: tournamentId })
-            .populate('teams')
-            .populate('tournament');
+            .populate('innings.team innings.battingPerformances innings.bowlingPerformances').populate({
+                path: 'teams',
+            }).populate({
+                path: 'teams',
+            }).populate({
+                path: 'tournament',
+            })
+            .populate({
+                path: 'playing11.team',  // Populate the team field in playing11
+                model: 'Team' // The reference model is 'Team'
+            })
+            .populate({
+                path: 'playing11.players', // Populate the players array in playing11
+                model: 'Player' // The reference model is 'Player'
+            })
+            .populate({
+                path: 'innings.nonStriker',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.currentBowler',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.currentStriker',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.previousBowler',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.team',
+                model: 'Team'
+            })
+            .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
+            .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
+            .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' });
+
 
         if (!matches) {
             throw new ApiError(404, "No matches found for this tournament.");
+        }
+
+        res.status(200).json(new ApiResponse(200, matches, "Matches fetched successfully"));
+    } catch (error) {
+        throw new ApiError(500, error.message || "Internal Server Error");
+    }
+});
+
+const getMatchesByTeamId = asyncHandler(async (req, res) => {
+    try {
+        const { teamId } = req.params;
+        console.log(req.params);
+
+
+        // Find matches where the teamId is in the 'teams' array (which holds 2 teams per match)
+        const matches = await Match.find({ teams: teamId })
+            .populate('innings.team innings.battingPerformances innings.bowlingPerformances').populate({
+                path: 'teams',
+            }).populate({
+                path: 'teams',
+            }).populate({
+                path: 'tournament',
+            })
+            .populate({
+                path: 'playing11.team',  // Populate the team field in playing11
+                model: 'Team' // The reference model is 'Team'
+            })
+            .populate({
+                path: 'playing11.players', // Populate the players array in playing11
+                model: 'Player' // The reference model is 'Player'
+            })
+            .populate({
+                path: 'innings.nonStriker',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.currentBowler',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.currentStriker',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.previousBowler',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.team',
+                model: 'Team'
+            })
+            .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
+            .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
+            .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' });
+
+
+        if (!matches || matches.length === 0) {
+            throw new ApiError(404, "No matches found for this team.");
         }
 
         res.status(200).json(new ApiResponse(200, matches, "Matches fetched successfully"));
@@ -279,7 +376,6 @@ const startMatch = asyncHandler(async (req, res) => {
         throw new ApiError(500, error.message || 'Internal Server Error');
     }
 });
-
 
 // const initializePlayers = asyncHandler(async (req, res) => {
 //     const { matchId } = req.params;
@@ -507,15 +603,44 @@ const getAllMatches = asyncHandler(async (req, res) => {
     try {
         // Find all matches and populate relevant fields
         const matches = await Match.find()
-            .populate('teams')               // Populating the teams field
-            .populate('innings.team')         // Populating team within innings
-            .populate('toss')                 // Populating toss (Team)
-            .populate({
-                path: 'playing11.players',
-                model: 'Player'
+            .populate('innings.team innings.battingPerformances innings.bowlingPerformances').populate({
+                path: 'teams',
+            }).populate({
+                path: 'teams',
             }).populate({
                 path: 'tournament',
-            });
+            })
+            .populate({
+                path: 'playing11.team',  // Populate the team field in playing11
+                model: 'Team' // The reference model is 'Team'
+            })
+            .populate({
+                path: 'playing11.players', // Populate the players array in playing11
+                model: 'Player' // The reference model is 'Player'
+            })
+            .populate({
+                path: 'innings.nonStriker',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.currentBowler',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.currentStriker',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.previousBowler',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.team',
+                model: 'Team'
+            })
+            .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
+            .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
+            .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' });
 
         // If no matches are found
         // if (!matches || matches.length === 0) {
@@ -531,8 +656,6 @@ const getAllMatches = asyncHandler(async (req, res) => {
 });
 
 
-
-
 export {
-    createMatch, getMatchesByTournamentId, getMatchById, startMatch, initializePlayers, getAllMatches
+    createMatch, getMatchesByTeamId, getMatchesByTournamentId, getMatchById, startMatch, initializePlayers, getAllMatches
 }
