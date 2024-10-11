@@ -108,7 +108,8 @@ const getTeamsByClub = asyncHandler(async (req, res) => {
 
         // Fetch teams associated with the club
         const teams = await Team.find({ associatedClub: clubId })
-            .populate('associatedClub', 'clubName'); // Optionally populate associated club details
+            .populate('associatedClub', 'clubName')// Optionally populate associated club details
+            .populate('players'); // Optionally populate associated club details
 
         if (!teams || teams.length === 0) {
             throw new ApiError(404, "No teams found for the specified club");

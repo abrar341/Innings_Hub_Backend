@@ -197,9 +197,45 @@ const addPlayerToTeam = asyncHandler(async (req, res) => {
     );
 });
 
+const removePlayerFromTeam = asyncHandler(async (req, res) => {
+    const { teamId, playerId } = req.body;
+    console.log(teamId, playerId);
+
+    // Validate required fields
+    if (!teamId || !playerId) {
+        throw new ApiError(400, "Team ID and Player ID are required");
+    }
+
+    // Find the team by teamId
+    const team = await Team.findById(teamId);
+    if (!team) {
+        console.log("team");
+        throw new ApiError(404, "Team not found");
+    }
+
+    // Check if the player exists in the team
+    const playerIndex = team.players.findIndex(player => player.toString() === playerId);
+    if (playerIndex === -1) {
+        throw new ApiError(400, "Player not found in the team");
+    }
+
+    // Remove the player from the players array
+    team.players.splice(playerIndex, 1);
+
+    // Save the updated team
+    await team.save();
+
+    // Return a success response with the updated team
+    return res.status(200).json(
+        new ApiResponse(200, team, "Player removed from the team successfully")
+    );
+});
+
+
 
 
 export {
+    removePlayerFromTeam,
     createTeam,
     updateTeam,
     deleteTeam,
