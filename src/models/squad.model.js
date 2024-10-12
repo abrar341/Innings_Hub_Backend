@@ -22,6 +22,11 @@ const squadSchema = new Schema({
         ref: 'Player',
         required: true
     }],
+    status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],  // Status for squad approval
+        default: 'pending'
+    }
 }, {
     timestamps: true
 });

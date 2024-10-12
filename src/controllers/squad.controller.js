@@ -39,7 +39,6 @@ const addPlayerToSquad = asyncHandler(async (req, res) => {
     );
 });
 
-
 export const getAllSquads = asyncHandler(async (req, res) => {
     // Fetch all squads from the database
     const squads = await Squad.find().populate('team tournament players');
@@ -54,4 +53,37 @@ export const getAllSquads = asyncHandler(async (req, res) => {
     );
 });
 
-export { addPlayerToSquad };
+const approveSquadById = asyncHandler(async (req, res) => {
+    const { squadId } = req.params;
+    console.log(req.params);
+
+
+    // Validate that the squad ID is provided
+    if (!squadId) {
+        throw new ApiError(400, "Squad ID is required");
+    }
+
+    // Find the squad by ID
+    const squad = await Squad.findById(squadId);
+
+    if (!squad) {
+        throw new ApiError(404, "Squad not found");
+    }
+
+    // Check if the squad is in pending status
+    if (squad.status !== 'pending') {
+        throw new ApiError(400, "Squad is not in pending status");
+    }
+
+    // Update the squad status to approved
+    squad.status = 'approved';
+    await squad.save(); // Save the updated squad
+
+    // Return the updated squad
+    return res.status(200).json(
+        new ApiResponse(200, squad, "Squad approved successfully")
+    );
+});
+
+
+export { addPlayerToSquad, approveSquadById };

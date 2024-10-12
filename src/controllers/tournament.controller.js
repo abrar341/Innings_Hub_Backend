@@ -188,8 +188,6 @@ const getConcludedTournaments = asyncHandler(async (req, res) => {
 const addTeamsToTournaments = asyncHandler(async (req, res) => {
     const { tournamentId, teamIds } = req.body;
     // console.log(req.body);
-
-
     // Validate required fields
     if (!tournamentId || !teamIds || !Array.isArray(teamIds) || teamIds.length === 0) {
         throw new ApiError(400, "Tournament ID and team IDs are required");
@@ -212,6 +210,7 @@ const addTeamsToTournaments = asyncHandler(async (req, res) => {
                 name: `${tournament.name} - Squad for Team ${teamId}`, // Adjust the naming convention as needed
                 team: teamId,
                 tournament: tournamentId,
+                status: 'approved',
                 players: [] // Empty players array initially
             });
 
@@ -423,22 +422,27 @@ const getTeamsInTournament = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Tournament ID is required");
     }
 
-    // Find the tournament by ID and populate the squads field to get the teams
-    const tournament = await Tournament.findById(tournamentId).populate('squads')
-        .populate('venues'); // Populate the venues
-    // .populate('officials'); // Populate the officials;
+    // Find the tournament by ID and populate the squads and venues
+    const tournament = await Tournament.findById(tournamentId)
+        .populate('squads')
+        .populate('venues');
+    // .populate('officials'); // Populate the officials if needed
     if (!tournament) {
         throw new ApiError(404, "Tournament not found");
     }
 
-    // Extract the teams from the squads in the tournament
+    // Filter squads by the status of "approved"
+    const approvedSquads = tournament.squads.filter(squad => squad.status === 'approved');
+
+    // Extract the teams from the approved squads
     const teamsInTournament = await Team.find({
-        _id: { $in: tournament.squads.map(squad => squad.team) }
+        _id: { $in: approvedSquads.map(squad => squad.team) }
     });
 
-    // Return the teams that are part of the tournament
-    return res.status(200).json(new ApiResponse(200, { teams: teamsInTournament, venues: tournament.venues }, "Teams in the tournament retrieved successfully"));
+    // Return the teams that are part of the tournament with approved status
+    return res.status(200).json(new ApiResponse(200, { teams: teamsInTournament, venues: tournament.venues }, "Teams with approved squads in the tournament retrieved successfully"));
 });
+
 const getSquadPlayers = asyncHandler(async (req, res) => {
     const { tournamentId, teamId } = req.params;
     console.log(tournamentId, teamId);
@@ -462,6 +466,71 @@ const getSquadPlayers = asyncHandler(async (req, res) => {
         throw new ApiError(500, error.message || 'Internal Server Error');
     }
 });
+
+const RegisterTeamsToTournament = asyncHandler(async (req, res) => {
+    const { tournamentId, teams } = req.body;
+    console.log(req.body);
+
+
+    // Validate required fields
+    if (!tournamentId || !teams || !Array.isArray(teams) || teams.length === 0) {
+        throw new ApiError(400, "Tournament ID and teams (with players) are required");
+    }
+
+    // Find the tournament by ID
+    const tournament = await Tournament.findById(tournamentId);
+    if (!tournament) {
+        throw new ApiError(404, "Tournament not found");
+    }
+
+    const createdSquads = [];
+    for (const team of teams) {
+        const { teamId, players } = team;
+
+        // Check if the squad already exists for this tournament and team
+        const existingSquad = await Squad.findOne({ tournament: tournamentId, team: teamId });
+
+        if (existingSquad) {
+            // If the squad exists, skip or handle it accordingly (e.g., ignore or throw an error)
+            console.log(`Squad for team ${teamId} already exists for this tournament.`);
+            continue;
+        }
+
+        // Check for duplicate players (removing any duplicates)
+        const uniquePlayers = [...new Set(players)];
+
+        // Create a new squad with pending status
+        try {
+            const squad = new Squad({
+                name: `${tournament.name} - Squad for Team ${teamId}`,
+                team: teamId,
+                tournament: tournamentId,
+                players: uniquePlayers,
+                status: 'pending' // Set the squad status to pending
+            });
+
+            // Save the squad to the database
+            await squad.save();
+            createdSquads.push(squad);
+
+            // Add squad ID to the tournament's squads array
+            tournament.squads.push(squad._id);
+        } catch (error) {
+            throw new ApiError(500, `Failed to create squad for team ${teamId}: ${error.message}`);
+        }
+    }
+
+    // Save the updated tournament with the newly added squads
+    await tournament.save();
+
+    // Return the success response with the created squads
+    return res.status(201).json(
+        new ApiResponse(201, { tournament, squads: createdSquads }, "Teams added to tournament and squads created successfully")
+    );
+});
+
+
+
 export {
     createTournament,
     updateTournament,
@@ -478,5 +547,6 @@ export {
     getAvailablePlayersForTournament,
     removePlayerFromSquad,
     getTeamsInTournament,
-    getSquadPlayers
+    getSquadPlayers,
+    RegisterTeamsToTournament
 }
