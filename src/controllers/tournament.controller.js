@@ -338,49 +338,38 @@ const getSingleTournamentSquads = asyncHandler(async (req, res) => {
 const getAvailablePlayersForTournament = asyncHandler(async (req, res) => {
     const { tournamentId, teamId } = req.params;
 
+    console.log(req.params);
+
+
     // Validate the tournament ID and team ID
     if (!tournamentId || !teamId) {
         throw new ApiError(400, "Tournament ID and Team ID are required");
     }
 
-    // Find the tournament by ID and populate squads and players
-    const tournament = await Tournament.findById(tournamentId).populate({
-        path: 'squads',
-        populate: { path: 'players', select: '_id' } // Only populate player IDs
-    });
+    // Find the squad for the given team in the given tournament
+    const squad = await Squad.findOne({ team: teamId, tournament: tournamentId }).populate('players');
 
-    if (!tournament) {
-        throw new ApiError(404, "Tournament not found");
+    // If no squad is found for this team in the tournament, return an error
+    if (!squad) {
+        throw new ApiError(404, "Squad for this team in the tournament not found");
     }
 
-    // Collect all player IDs from all squads in the tournament
-    const allPlayersInTournament = tournament.squads.reduce((allPlayerIds, squad) => {
-        return allPlayerIds.concat(squad.players.map(player => player._id.toString())); // Get player IDs only
-    }, []);
+    // Extract the player IDs already in the squad
+    const playersInSquad = squad.players.map(player => player._id.toString());
 
-
-
-
-
-    // Find the team by ID and get the associated club
-    const team = await Team.findById(teamId);
+    // Find the team by ID and retrieve the players
+    const team = await Team.findById(teamId).populate('players'); // Assuming 'players' is an array in Team model
     if (!team) {
         throw new ApiError(404, "Team not found");
     }
 
-    const clubId = team.associatedClub;
-    // Assuming the team model has a `club` field
+    // Filter the team's players to exclude those already in the squad
+    const availablePlayers = team.players.filter(player => !playersInSquad.includes(player._id.toString()));
 
-    // Find all players of the club
-    const clubPlayers = await Player.find({ associatedClub: clubId });
-
-
-    // Filter the club's players by removing those already part of any squad in the tournament
-    const availablePlayers = clubPlayers.filter(player => !allPlayersInTournament.includes(player._id.toString()));
-
-    // Return the available players
+    // Return the available players for the team in the tournament
     return res.status(200).json(new ApiResponse(200, availablePlayers, "Available players for the team in the tournament retrieved successfully"));
 });
+
 const removePlayerFromSquad = asyncHandler(async (req, res) => {
     const { squadId, playerId } = req.body.playerId;
     console.log(squadId, playerId);
