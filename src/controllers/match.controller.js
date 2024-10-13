@@ -200,7 +200,6 @@ const getMatchById = asyncHandler(async (req, res) => {
         throw new ApiError(500, error.message || "Internal Server Error");
     }
 });
-
 const startMatch = asyncHandler(async (req, res) => {
     const { matchId } = req.params;
     const { tossWinner, tossDecision, playing11 } = req.body;
@@ -261,27 +260,24 @@ const startMatch = asyncHandler(async (req, res) => {
         if (!Array.isArray(playing11) || playing11.length !== 2) {
             throw new ApiError(400, 'Invalid playing11 structure. It should contain players from both teams.');
         }
-
-        // playing11.forEach(team => {
-        //     if (!team.team || !Array.isArray(team.players) || team.players.length !== 11) {
-        //         throw new ApiError(400, 'Each team should have exactly 11 players');
-        //     }
-        // });
-
         // Update toss winner, toss decision, and playing 11
         match.toss = tossWinner;
         match.tossDecision = tossDecision;
         match.playing11 = playing11;
+        // Find the toss winner team object from the match teams array
+        const tossWinnerTeam = match.teams.find(team => team._id.toString() === tossWinner.toString());
 
         // Determine which team bats first based on the toss decision
         const firstInningTeam = tossDecision === 'bat'
-            ? tossWinner
-            : match.teams.find(team => team._id?.toString() !== tossWinner?.toString());
-        const secondInningTeam = match.teams.find(team => team._id?.toString() !== firstInningTeam._id?.toString());
-        console.log("firstInningTeam", firstInningTeam);
-        console.log("secondInningsTea,", secondInningTeam);
+            ? tossWinnerTeam
+            : match.teams.find(team => team._id.toString() !== tossWinner.toString());
 
-        // Initialize the innings data based on the toss decision
+        const secondInningTeam = match.teams.find(team => team._id.toString() !== firstInningTeam._id.toString());
+
+        console.log("firstInningTeam", firstInningTeam);
+        console.log("secondInningTeam", secondInningTeam);
+
+        // Initialize the innings data with full team details
         match.innings = [
             {
                 team: firstInningTeam,
@@ -316,6 +312,7 @@ const startMatch = asyncHandler(async (req, res) => {
                 bowlingPerformances: [],
             }
         ];
+
 
         // Set the current inning to the first one
         match.currentInning = 1;
@@ -376,6 +373,181 @@ const startMatch = asyncHandler(async (req, res) => {
         throw new ApiError(500, error.message || 'Internal Server Error');
     }
 });
+// const startMatch = asyncHandler(async (req, res) => {
+//     const { matchId } = req.params;
+//     const { tossWinner, tossDecision, playing11 } = req.body;
+//     console.log(req.body);
+
+//     console.log(matchId);
+
+//     try {
+//         // Find the match by ID
+//         const match = await Match.findById(matchId).populate('teams')
+
+//             .populate({
+//                 path: 'teams',
+//             })
+//             .populate({
+//                 path: 'toss',  // Populate the team field in playing11
+//                 model: 'Team' // The reference model is 'Team'
+//             })
+//             .populate({
+//                 path: 'playing11.team',  // Populate the team field in playing11
+//                 model: 'Team' // The reference model is 'Team'
+//             })
+//             .populate({
+//                 path: 'playing11.players', // Populate the players array in playing11
+//                 model: 'Player' // The reference model is 'Player'
+//             })
+//             .populate({
+//                 path: 'innings.nonStriker',
+//                 model: 'Player'
+//             })
+//             .populate({
+//                 path: 'innings.currentBowler',
+//                 model: 'Player'
+//             })
+//             .populate({
+//                 path: 'innings.currentStriker',
+//                 model: 'Player'
+//             })
+//             .populate({
+//                 path: 'innings.previousBowler',
+//                 model: 'Player'
+//             })
+//             .populate({
+//                 path: 'innings',
+//                 populate: { path: 'team', model: 'Team' }  // Nested populate inside innings
+//             });
+
+//         if (!match) {
+//             throw new ApiError(404, 'Match not found');
+//         }
+
+//         // Ensure match is still scheduled and not already live or completed
+//         if (match.status !== 'scheduled') {
+//             throw new ApiError(400, 'Match has already started or completed');
+//         }
+
+//         // Validate playing11 structure
+//         if (!Array.isArray(playing11) || playing11.length !== 2) {
+//             throw new ApiError(400, 'Invalid playing11 structure. It should contain players from both teams.');
+//         }
+
+//         // playing11.forEach(team => {
+//         //     if (!team.team || !Array.isArray(team.players) || team.players.length !== 11) {
+//         //         throw new ApiError(400, 'Each team should have exactly 11 players');
+//         //     }
+//         // });
+
+//         // Update toss winner, toss decision, and playing 11
+//         match.toss = tossWinner;
+//         match.tossDecision = tossDecision;
+//         match.playing11 = playing11;
+
+//         // Determine which team bats first based on the toss decision
+//         const firstInningTeam = tossDecision === 'bat'
+//             ? tossWinner
+//             : match.teams.find(team => team._id?.toString() !== tossWinner?.toString());
+//         const secondInningTeam = match.teams.find(team => team._id?.toString() !== firstInningTeam?.toString());
+//         console.log("firstInningTeam", firstInningTeam);
+//         console.log("secondInningsTea,", secondInningTeam);
+
+//         // Initialize the innings data based on the toss decision
+//         match.innings = [
+//             {
+//                 team: firstInningTeam,
+//                 runs: 0,
+//                 wickets: 0,
+//                 totalOvers: 0,
+//                 extras: {
+//                     wides: 0,
+//                     noBalls: 0,
+//                     byes: 0,
+//                     legByes: 0,
+//                     total: 0,
+//                 },
+//                 fallOfWickets: [],
+//                 battingPerformances: [],
+//                 bowlingPerformances: [],
+//             },
+//             {
+//                 team: secondInningTeam,
+//                 runs: 0,
+//                 wickets: 0,
+//                 totalOvers: 0,
+//                 extras: {
+//                     wides: 0,
+//                     noBalls: 0,
+//                     byes: 0,
+//                     legByes: 0,
+//                     total: 0,
+//                 },
+//                 fallOfWickets: [],
+//                 battingPerformances: [],
+//                 bowlingPerformances: [],
+//             }
+//         ];
+
+//         // Set the current inning to the first one
+//         match.currentInning = 1;
+
+//         // Change the match status to 'live'
+//         match.status = 'live';
+
+//         // Save the updated match
+//         await match.save();
+
+//         await Match.findById(matchId).populate('teams')
+
+//             .populate({
+//                 path: 'teams',
+//             })
+//             .populate({
+//                 path: 'toss',  // Populate the team field in playing11
+//                 model: 'Team' // The reference model is 'Team'
+//             })
+//             .populate({
+//                 path: 'playing11.team',  // Populate the team field in playing11
+//                 model: 'Team' // The reference model is 'Team'
+//             })
+//             .populate({
+//                 path: 'playing11.players', // Populate the players array in playing11
+//                 model: 'Player' // The reference model is 'Player'
+//             })
+//             .populate({
+//                 path: 'innings.nonStriker',
+//                 model: 'Player'
+//             })
+//             .populate({
+//                 path: 'innings.currentBowler',
+//                 model: 'Player'
+//             })
+//             .populate({
+//                 path: 'innings.currentStriker',
+//                 model: 'Player'
+//             })
+//             .populate({
+//                 path: 'innings.previousBowler',
+//                 model: 'Player'
+//             })
+//             .populate({
+//                 path: 'innings',
+//                 populate: { path: 'team', model: 'Team' }  // Nested populate inside innings
+//             });
+//         if (!match) {
+//             throw new ApiError(404, 'Match not found');
+//         }
+//         io.to(matchId).emit('matchUpdate', {
+//             message: 'Match Started Soon',
+//             match: match,
+//         });
+
+//         res.status(200).json(new ApiResponse(200, match, 'Match started successfully and innings initialized'));
+//     } catch (error) {
+//         throw new ApiError(500, error.message || 'Internal Server Error');
+//     }
+// });
 
 // const initializePlayers = asyncHandler(async (req, res) => {
 //     const { matchId } = req.params;

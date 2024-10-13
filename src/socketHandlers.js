@@ -150,7 +150,7 @@ export const setupSocketHandlers = (io) => {
                             match.status = 'completed';
 
                         }
-                        else if (match.innings[1].overs.length + 1 > maxOvers && match.innings[1].runs < match.innings[0].runs + 1) {
+                        else if (match.innings[1].overs.length > maxOvers && match.innings[1].runs < match.innings[0].runs + 1) {
                             match.result = {
                                 winner: firstInning.team,
                                 by: 'runs',
@@ -161,12 +161,11 @@ export const setupSocketHandlers = (io) => {
 
                         }
                         // Scenario 2: Tie Condition (Exact equal scores, all wickets lost)
-                        if (match.innings[1].runs === match.innings[0].runs && secondInningWickets >= maxWickets || match.innings[1].runs === match.innings[0].runs && match.innings[1].overs.length + 1 > maxOvers) {
+                        if (match.innings[1].runs === match.innings[0].runs && secondInningWickets >= maxWickets || match.innings[1].runs === match.innings[0].runs && match.innings[1].overs.length > maxOvers) {
                             match.result = {
                                 isTie: true,
                             };
                             match.status = 'completed';
-
                         }
                     }
 
@@ -281,11 +280,7 @@ export const setupSocketHandlers = (io) => {
                 }
                 // fielder
                 if (event.startsWith("0")) {
-                    if (ballNumber >= 5 && ballIsValid) {
-                        const temp = currentInning.currentStriker;
-                        currentInning.currentStriker = currentInning.nonStriker;
-                        currentInning.nonStriker = temp;
-                    }
+
                     runScored = 0;
                     battingPerformance.ballsFaced += 1;
                     bowlingPerformance.balls += 1;

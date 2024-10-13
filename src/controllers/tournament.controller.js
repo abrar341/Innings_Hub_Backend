@@ -369,7 +369,6 @@ const getAvailablePlayersForTournament = asyncHandler(async (req, res) => {
     // Return the available players for the team in the tournament
     return res.status(200).json(new ApiResponse(200, availablePlayers, "Available players for the team in the tournament retrieved successfully"));
 });
-
 const removePlayerFromSquad = asyncHandler(async (req, res) => {
     const { squadId, playerId } = req.body.playerId;
     console.log(squadId, playerId);
@@ -431,7 +430,6 @@ const getTeamsInTournament = asyncHandler(async (req, res) => {
     // Return the teams that are part of the tournament with approved status
     return res.status(200).json(new ApiResponse(200, { teams: teamsInTournament, venues: tournament.venues }, "Teams with approved squads in the tournament retrieved successfully"));
 });
-
 const getSquadPlayers = asyncHandler(async (req, res) => {
     const { tournamentId, teamId } = req.params;
     console.log(tournamentId, teamId);
@@ -455,7 +453,6 @@ const getSquadPlayers = asyncHandler(async (req, res) => {
         throw new ApiError(500, error.message || 'Internal Server Error');
     }
 });
-
 const RegisterTeamsToTournament = asyncHandler(async (req, res) => {
     const { tournamentId, teams } = req.body;
     console.log(req.body);
@@ -517,8 +514,6 @@ const RegisterTeamsToTournament = asyncHandler(async (req, res) => {
         new ApiResponse(201, { tournament, squads: createdSquads }, "Teams added to tournament and squads created successfully")
     );
 });
-
-
 
 export {
     createTournament,
