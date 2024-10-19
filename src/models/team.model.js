@@ -19,6 +19,12 @@ const teamSchema = new Schema({
         required: true,
         trim: true
     },
+    stats: {                 //stats of player
+        matches: { type: Number, default: 0 },
+        wins: { type: Number, default: 0 },
+        loss: { type: Number, default: 0 },
+        draws: { type: Number, default: 0 },
+    },
     // Team owner information
     associatedClub: {
         type: Schema.Types.ObjectId,

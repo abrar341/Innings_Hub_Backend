@@ -25,6 +25,12 @@ const playerSchema = new Schema({
     DOB: {
         type: Date
     },
+    CNIC: {
+        type: String,
+        required: true,
+        unique: true,
+        match: [/^\d{5}-\d{7}-\d{1}$/, 'Please fill a valid CNIC (xxxxx-xxxxxxx-x)'],
+    },
     age: {
         type: Number,
         min: 15,
@@ -72,11 +78,18 @@ const playerSchema = new Schema({
     },
     stats: {                 //stats of player
         matches: { type: Number, default: 0 },
+        battingInnings: { type: Number, default: 0 },
         runs: { type: Number, default: 0 },
-        wickets: { type: Number, default: 0 },
+        ballFaced: { type: Number, default: 0 },
         highestScore: { type: Number, default: 0 },
         centuries: { type: Number, default: 0 },
         halfCenturies: { type: Number, default: 0 },
+        bowlingInnings: { type: Number, default: 0 },
+        runsConceded: { type: Number, default: 0 },
+        wickets: { type: Number, default: 0 },
+        FiveWickets: { type: Number, default: 0 },
+        TenWickets: { type: Number, default: 0 },
+        BB: { type: String, default: "" }
     },
     description: {                 //about player
         type: String

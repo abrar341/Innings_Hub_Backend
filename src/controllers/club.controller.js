@@ -87,12 +87,13 @@ const getPlayersByClub = asyncHandler(async (req, res) => {
 
         // Find all players associated with this club
         const players = await Player.find({ associatedClub: clubId })
-            .select('playerName city phone email profilePicture DOB status jersyNo role battingStyle bowlingStyle');
+            .select('playerName city phone email profilePicture DOB status jersyNo role battingStyle bowlingStyle CNIC');
         // console.log(players);
 
         if (!players.length) {
             return res.status(404).json(new ApiResponse(404, null, "No players found for this club"));
         }
+        console.log(players);
 
         return res.status(200).json(
             new ApiResponse(200, players, "Players retrieved successfully")
@@ -102,6 +103,7 @@ const getPlayersByClub = asyncHandler(async (req, res) => {
     }
 });
 const getTeamsByClub = asyncHandler(async (req, res) => {
+
     try {
         const clubId = req.params.id; // Get clubId from request parameters
         // console.log(clubId);
@@ -114,7 +116,6 @@ const getTeamsByClub = asyncHandler(async (req, res) => {
         if (!teams || teams.length === 0) {
             throw new ApiError(404, "No teams found for the specified club");
         }
-
         return res.status(200).json(new ApiResponse(200, teams, "Teams fetched successfully"));
     } catch (error) {
         throw new ApiError(500, error.message || "Error fetching teams");
@@ -123,6 +124,8 @@ const getTeamsByClub = asyncHandler(async (req, res) => {
 const getClubs = asyncHandler(async (req, res) => {
     try {
         const registrationStatus = req.query.registrationStatus;
+        console.log(registrationStatus);
+
 
         let query = {};
         if (registrationStatus && registrationStatus !== 'all') {

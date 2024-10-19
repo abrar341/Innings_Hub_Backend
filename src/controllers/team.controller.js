@@ -3,6 +3,8 @@ import { Team } from "../models/team.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import Match from "../models/match.model.js";
+import { Player } from "../models/player.model.js";
 
 
 const createTeam = asyncHandler(async (req, res) => {
@@ -101,7 +103,9 @@ const getAllTeams = asyncHandler(async (req, res) => {
     // console.log("hello");
 
     try {
-        const teams = await Team.find().select("-__v"); // Exclude the `__v` field
+        const teams = await Team.find()
+            .select("-__v") // Exclude the `__v` field
+            .populate('associatedClub', 'clubName'); // Populate `associatedClub` with `clubName`
 
         if (!teams || teams.length === 0) {
             throw new ApiError(404, "No teams found");
@@ -115,7 +119,6 @@ const getAllTeams = asyncHandler(async (req, res) => {
         throw new ApiError(500, "An error occurred while fetching teams");
     }
 });
-
 const deleteTeam = asyncHandler(async (req, res) => {
     try {
         const { id } = req.params;
@@ -136,13 +139,20 @@ const deleteTeam = asyncHandler(async (req, res) => {
         throw new ApiError(500, "An error occurred while deleting the team");
     }
 });
-
 const getSingleTeamDetail = asyncHandler(async (req, res) => {
     const { id } = req.params;  // Get the team ID from the request parameters
 
     try {
         // Fetch the team from the database and populate the 'players' array
-        const team = await Team.findById(id).populate('players');
+        const team = await Team.findById(id)
+            .populate({
+                path: 'players',
+                populate: {
+                    path: 'currentTeam',
+                    select: 'teamName teamLogo', // Only populate teamName and teamLogo
+                }
+            });
+
 
         if (!team) {
             throw new ApiError(404, "Team not found");
@@ -159,12 +169,9 @@ const getSingleTeamDetail = asyncHandler(async (req, res) => {
         throw new ApiError(500, "An error occurred while fetching team details");
     }
 });
-
-
 const addPlayerToTeam = asyncHandler(async (req, res) => {
     const { teamId, playerIds } = req.body;
     console.log(req.body);
-
 
     // Validate required fields
     if (!teamId || !playerIds || !Array.isArray(playerIds) || playerIds.length === 0) {
@@ -184,18 +191,34 @@ const addPlayerToTeam = asyncHandler(async (req, res) => {
     if (newPlayers.length === 0) {
         throw new ApiError(400, "All provided players are already in the team");
     }
-
     // Add the new players to the players array
     team.players.push(...newPlayers);
-
     // Save the updated team
     await team.save();
+    // Update the Player models
+    const playerUpdates = newPlayers.map(async (playerId) => {
+        const player = await Player.findById(playerId);
+        if (player) {
+            // Add the team to the player's teams array if it's not already present
+            if (!player.teams.includes(teamId)) {
+                player.teams.push(teamId);
+            }
+            // Update the player's current team
+            player.currentTeam = teamId;
+            // Save the updated player document
+            await player.save();
+        }
+    });
+
+    // Wait for all player updates to complete
+    await Promise.all(playerUpdates);
 
     // Return a success response with the updated team
     return res.status(200).json(
         new ApiResponse(200, team, "Players added to the team successfully")
     );
 });
+
 
 const removePlayerFromTeam = asyncHandler(async (req, res) => {
     const { teamId, playerId } = req.body;
@@ -225,12 +248,72 @@ const removePlayerFromTeam = asyncHandler(async (req, res) => {
     // Save the updated team
     await team.save();
 
+    // Find the player by playerId and update their currentTeam to null
+    const player = await Player.findById(playerId);
+    if (player) {
+        player.currentTeam = null;
+        await player.save();
+    }
+
     // Return a success response with the updated team
     return res.status(200).json(
         new ApiResponse(200, team, "Player removed from the team successfully")
     );
 });
 
+const updateTeamStats = async (req, res) => {
+    try {
+        const { matchId } = req.body;
+        console.log(req.body);
+
+        // Fetch the match details from the database
+        const match = await Match.findById(matchId).populate('teams result.winner');
+
+        if (!match) {
+            return res.status(404).json({ message: "Match not found" });
+        }
+
+        const { teams, result } = match;
+        const [team1, team2] = teams;
+
+        // Update matches count for both teams
+        await Team.updateMany(
+            { _id: { $in: [team1, team2] } },
+            { $inc: { 'stats.matches': 1 } }
+        );
+
+        // Check for the match result
+        if (result.isTie) {
+            // If the match is a tie, update draws for both teams
+            await Team.updateMany(
+                { _id: { $in: [team1, team2] } },
+                { $inc: { 'stats.draws': 1 } }
+            );
+        } else {
+            // If there is a winner, update wins and losses accordingly
+            const winnerId = match.result.winner;
+            const loserId = winnerId.toString() === team1.toString() ? team2 : team1;
+
+            // Increment wins for the winning team
+            await Team.updateOne(
+                { _id: winnerId },
+                { $inc: { 'stats.wins': 1 } }
+            );
+
+            // Increment losses for the losing team
+            await Team.updateOne(
+                { _id: loserId },
+                { $inc: { 'stats.loss': 1 } }
+            );
+        }
+
+        // Respond with success message
+        res.status(200).json({ message: "Team stats updated successfully" });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
 
 
 
@@ -241,5 +324,6 @@ export {
     deleteTeam,
     getAllTeams,
     getSingleTeamDetail,
-    addPlayerToTeam
+    addPlayerToTeam,
+    updateTeamStats
 }

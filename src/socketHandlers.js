@@ -401,7 +401,17 @@ export const setupSocketHandlers = (io) => {
 
                 if (event.startsWith("-2")) {
                     extraT = "w";     //wide ball
-                    const runs = parseInt(event.slice(2));
+                    const runs = parseInt(event.slice(2)); // Extract the runs
+
+                    if (runs === 2 || runs === 4) {
+                        const temp = currentInning.currentStriker;
+                        currentInning.currentStriker = currentInning.nonStriker;
+                        currentInning.nonStriker = temp;
+                    }
+
+                    bowlingPerformance.runsConceded += runs;
+                    bowlingPerformance.wides += 1;
+
                     currentOver.totalRuns += runs;
                     runScored = runs;
                     currentInning.runs += runs;
@@ -410,6 +420,16 @@ export const setupSocketHandlers = (io) => {
                 if (event.startsWith("-3")) {        //no ball
                     extraT = 'nb';
                     const runs = parseInt(event.slice(2));
+                    // Update the bowler's stats (extra run and no ball count)
+                    bowlingPerformance.runsConceded += runs;
+                    bowlingPerformance.noBalls += 1;
+
+                    if (runs === 2 || runs === 4) {
+                        const temp = currentInning.currentStriker;
+                        currentInning.currentStriker = currentInning.nonStriker;
+                        currentInning.nonStriker = temp;
+                    }
+
                     runScored = runs;
                     currentOver.totalRuns += runs;
                     currentInning.runs += runs;
@@ -628,22 +648,6 @@ export const setupSocketHandlers = (io) => {
 
                 }
 
-                if (event.startsWith("-2")) { // Wide ball
-                    const runs = parseInt(event.slice(2)); // Extract the runs
-                    console.log(`Wide ball: ${runs}`);
-                    // Update the bowler's stats (extra run and wide count)
-                    bowlingPerformance.runsConceded += runs;
-                    bowlingPerformance.wides += 1;
-                }
-
-                if (event.startsWith("-3")) { // No ball
-                    const runs = parseInt(event.slice(2)); // Extract the runs
-                    console.log(`No ball: ${runs}`);
-
-                    // Update the bowler's stats (extra run and no ball count)
-                    bowlingPerformance.runsConceded += runs;
-                    bowlingPerformance.noBalls += 1;
-                }
 
                 if (!currentInning) {
                     throw new Error('Inning not found');
@@ -1273,3 +1277,5 @@ export const setupSocketHandlers = (io) => {
         });
     });
 }
+
+

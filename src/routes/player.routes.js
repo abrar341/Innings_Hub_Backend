@@ -1,6 +1,6 @@
 
 import { Router } from "express";
-import { createPlayer, deletePlayer, getAllPlayers, getAvailablePlayersForTeam, updatePlayer } from "../controllers/player.controller.js";
+import { createPlayer, deletePlayer, getAllPlayers, getAvailablePlayersForTeam, getPlayerById, updatePlayer, updatePlayerStats } from "../controllers/player.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 
 const router = Router()
@@ -22,6 +22,9 @@ router.route("/updatePlayer/:id").put(
     ]), updatePlayer)
 router.route("/deletePlayer/:id").delete(deletePlayer)
 router.route("/getAvailablePlayersForTeam/:clubId").get(getAvailablePlayersForTeam)
+router.route("/updatePlayerStats").put(updatePlayerStats)
+router.route("/getPlayerById/:id").get(getPlayerById)
+
 
 
 

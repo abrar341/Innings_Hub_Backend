@@ -166,7 +166,6 @@ const getMatchesByTeamId = asyncHandler(async (req, res) => {
     }
 });
 
-
 const getMatchById = asyncHandler(async (req, res) => {
     try {
         const { matchId } = req.params;
@@ -826,6 +825,8 @@ const getAllMatches = asyncHandler(async (req, res) => {
         throw new ApiError(500, error.message || 'Internal Server Error');
     }
 });
+
+
 
 
 export {
