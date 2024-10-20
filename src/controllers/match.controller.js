@@ -4,6 +4,8 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import Match from "../models/match.model.js";
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { Post } from "../models/post.model.js";
 
 const createMatch = asyncHandler(async (req, res) => {
     try {
@@ -826,9 +828,98 @@ const getAllMatches = asyncHandler(async (req, res) => {
     }
 });
 
+const createPost = asyncHandler(async (req, res) => {
+    console.log("req.body", req.body);
+
+    try {
+        const { matchId, descriptions } = req.body;
+        console.log(req.body);
+
+
+        // Validate input data
+        if (!matchId || !descriptions || descriptions.length === 0) {
+            throw new ApiError(400, "Match ID and image descriptions are required.");
+        }
+
+        // Validate uploaded files
+        if (!req.files || !req.files.images || !Array.isArray(req.files.images) || req.files.images.length === 0) {
+            throw new ApiError(400, "At least one image is required.");
+        }
+
+        // Upload images to Cloudinary and store URLs
+        const uploadedImages = await Promise.all(
+            req.files.images.map(async (image) => {
+                const imageLocalPath = image.path; // Get the local path of each uploaded file
+                const uploadedImage = await uploadOnCloudinary(imageLocalPath); // Upload to Cloudinary
+                return uploadedImage.url; // Return the URL of the uploaded image
+            })
+        );
+
+        console.log("uploadedImages", uploadedImages);
+
+        // Prepare and save posts for each image-description pair
+        const createdPosts = await Promise.all(
+            uploadedImages.map(async (imageUrl, index) => {
+                const postData = {
+                    description: descriptions[index]?.trim() || "",
+                    matchId: matchId.trim(),
+                    postPhotoUrl: imageUrl
+                };
+                console.log(postData);
+
+                const post = new Post(postData);
+                await post.save();
+
+                // Populate the matchId field for response
+                return await Post.findById(post._id).populate('matchId', 'matchName');
+            })
+        );
+
+        // Return success response with all created posts
+        return res.status(201).json(
+            new ApiResponse(201, createdPosts, "Posts created successfully")
+        );
+    } catch (error) {
+        // Handle and return any errors
+        throw new ApiError(500, error.message || "Error creating posts");
+    }
+});
+const getPostsByMatchId = asyncHandler(async (req, res) => {
+    try {
+        const { matchId } = req.params; // Extract matchId from the request parameters
+        console.log(req.params);
+
+
+        // Validate the matchId
+        if (!matchId) {
+            throw new ApiError(400, "Match ID is required.");
+        }
+
+        // Find all posts associated with the given matchId
+        const posts = await Post.find({ matchId }).populate('matchId', 'matchName');
+
+        // Check if posts are found
+        if (posts.length === 0) {
+            return res.status(404).json(
+                new ApiResponse(404, [], "No posts found for this match.")
+            );
+        }
+
+        // Return the found posts in the response
+        return res.status(200).json(
+            new ApiResponse(200, posts, "Posts retrieved successfully.")
+        );
+    } catch (error) {
+        // Handle any errors
+        throw new ApiError(500, error.message || "Error retrieving posts");
+    }
+});
+
+
+
 
 
 
 export {
-    createMatch, getMatchesByTeamId, getMatchesByTournamentId, getMatchById, startMatch, initializePlayers, getAllMatches
+    createMatch, createPost, getPostsByMatchId, getMatchesByTeamId, getMatchesByTournamentId, getMatchById, startMatch, initializePlayers, getAllMatches
 }
