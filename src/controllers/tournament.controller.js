@@ -432,7 +432,7 @@ const getTeamsInTournament = asyncHandler(async (req, res) => {
 });
 const getSquadPlayers = asyncHandler(async (req, res) => {
     const { tournamentId, teamId } = req.params;
-    console.log(tournamentId, teamId);
+    console.log("tournamentId, teamId", tournamentId, teamId);
 
 
     try {

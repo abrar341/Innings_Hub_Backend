@@ -306,7 +306,7 @@ const updateTeamStats = async (req, res) => {
                 { $inc: { 'stats.loss': 1 } }
             );
         }
-
+        await Match.findByIdAndUpdate(matchId, { $set: { teamStats: true } });
         // Respond with success message
         res.status(200).json({ message: "Team stats updated successfully" });
     } catch (error) {

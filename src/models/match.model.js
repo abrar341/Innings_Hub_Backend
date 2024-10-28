@@ -215,6 +215,14 @@ const matchSchema = new mongoose.Schema({
             default: false,
         }
     },
+    playerStats: {
+        type: Boolean,
+        default: false,
+    },
+    teamStats: {
+        type: Boolean,
+        default: false,
+    }
 },
     {
         timestamps: true,

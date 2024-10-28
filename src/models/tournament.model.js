@@ -98,6 +98,11 @@ const tournamentSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'Squad',
     }],
+    // Array of Round references
+    rounds: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Round',
+    }],
     schedule: {
         type: Schema.Types.ObjectId,
         ref: 'Schedule',

@@ -8,31 +8,23 @@ import { sendVerificationEmail, sendWelcomeEmail, } from '../mailtrap/mailer.js'
 
 
 const registerUser = asyncHandler(async (req, res) => {
-    const { name,
-        email,
-        username,
-        password,
-        confirmPassword,
-        role } = req.body
+    const { name, email, username, password, confirmPassword, role } = req.body;
 
-    // console.log(req.body);
-
-
-    if (
-        [name, email, username, confirmPassword, password, role].some((field) => field?.trim() === "")
-    ) {
-        throw new ApiError(400, "All fields are required")
+    if ([name, email, username, confirmPassword, password, role].some((field) => field?.trim() === "")) {
+        throw new ApiError(400, "All fields are required");
     }
+    console.log(req.body);
 
     const existedUser = await User.findOne({
         $or: [{ username }, { email }]
-    })
+    });
 
+    // Check if the user already exists
     if (existedUser) {
-        // console.log("existedUser", existedUser);
         if (existedUser.isVerified) {
             throw new ApiError(409, "User with email or username already exists");
         } else {
+            // Reassign existing user's details and send verification if not verified
             const verificationToken = Math.floor(100000 + Math.random() * 900000).toString();
             existedUser.name = name;
             existedUser.password = password;
@@ -43,13 +35,25 @@ const registerUser = asyncHandler(async (req, res) => {
             await existedUser.save();
             await sendVerificationEmail(existedUser.email, verificationToken);
 
-            return res.status(200).json(
-                new ApiResponse(200, existedUser, "Verification code send to your email")
-            );
+            return res.status(200).json(new ApiResponse(200, existedUser, "Verification code sent to your email"));
         }
     }
 
+    if (role.toLowerCase() === 'scorer') {
+        // Directly create verified scorer without verification email
+        const user = await User.create({
+            name,
+            email,
+            password,
+            username: username.toLowerCase(),
+            role: role.toLowerCase(),
+            isVerified: true,
+        });
 
+        return res.status(201).json(new ApiResponse(200, user, "Scorer registered successfully"));
+    }
+
+    // Standard user registration with verification for other roles
     const verificationToken = Math.floor(100000 + Math.random() * 900000).toString();
     const user = await User.create({
         name,
@@ -59,22 +63,18 @@ const registerUser = asyncHandler(async (req, res) => {
         role: role.toLowerCase(),
         verificationToken,
         verificationTokenExpiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
-    })
+    });
+
     await sendVerificationEmail(user.email, verificationToken);
 
-    const createdUser = await User.findById(user._id).select(
-        "-password -refreshToken"
-    )
+    const createdUser = await User.findById(user._id).select("-password -refreshToken");
 
     if (!createdUser) {
-        throw new ApiError(500, "Something went wrong while registering the User")
+        throw new ApiError(500, "Something went wrong while registering the user");
     }
 
-    return res.status(201).json(
-        new ApiResponse(200, createdUser, "User registered Successfully")
-    )
-
-})
+    return res.status(201).json(new ApiResponse(200, createdUser, "User registered successfully"));
+});
 
 const getUserProfile = asyncHandler(async (req, res) => {
     const userId = req.params.id; // Get userId from URL params or auth middleware
@@ -96,7 +96,6 @@ const getUserProfile = asyncHandler(async (req, res) => {
         new ApiResponse(200, user, 'User profile fetched successfully')
     );
 });
-
 
 export const verifyEmail = asyncHandler(async (req, res) => {
     const { code, email } = req.body; // Capture email and code from the user input
@@ -137,7 +136,6 @@ export const verifyEmail = asyncHandler(async (req, res) => {
         throw new ApiError(500, "Server error occurred while verifying the email");
     }
 });
-
 
 const generateAccessAndRefreshTokens = async (userId) => {
     try {
@@ -215,19 +213,24 @@ const loginUser = asyncHandler(async (req, res) => {
         );
 });
 
-
 const logoutUser = asyncHandler(async (req, res) => {
-    await User.findByIdAndUpdate(
-        req.user._id,
-        {
-            $unset: {
-                refreshToken: 1 // this removes the field from document
-            }
-        },
-        {
-            new: true
-        }
-    )
+    console.log("req.user._id");
+    // console.log(req.user._id);
+
+    // if (req.user._id) {
+
+    //     await User.findByIdAndUpdate(
+    //         req.user._id,
+    //         {
+    //             $unset: {
+    //                 refreshToken: 1 // this removes the field from document
+    //             }
+    //         },
+    //         {
+    //             new: true
+    //         }
+    //     )
+    // }
 
     const options = {
         httpOnly: true,
@@ -265,11 +268,37 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 // const updateAccountDetails = asyncHandler(async (req, res) => {
 // });
 
+// Controller to get all users with the role 'scorer'
+const getAllScorers = asyncHandler(async (req, res) => {
+    const scorers = await User.find({ role: 'scorer' }).select('-password -refreshToken');
 
+    return res.status(200).json(new ApiResponse(200, scorers, 'Scorers retrieved successfully'));
+});
+
+const deleteUser = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    console.log(id);
+
+
+    // Find the user by ID
+    const user = await User.findById(id);
+
+    // If user not found, return an error
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    // Delete the user
+    await user.deleteOne();
+
+    return res.status(200).json(new ApiResponse(200, null, "User deleted successfully"));
+});
 export {
     registerUser,
     loginUser,
     logoutUser,
     changeCurrentPassword,
-    getUserProfile
+    getUserProfile,
+    getAllScorers,
+    deleteUser
 }

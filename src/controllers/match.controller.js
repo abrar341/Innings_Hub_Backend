@@ -53,6 +53,75 @@ const createMatch = asyncHandler(async (req, res) => {
     }
 });
 
+const createAndScheduleMatches = asyncHandler(async (req, res) => {
+    try {
+        const { tournamentId, round, groups, venues, overs, startDate, matchTimes, matchesPerDay } = req.body;
+
+        // Validate required fields
+        if (!tournamentId || !round?.trim() || !groups || !Array.isArray(groups) || !venues || !Array.isArray(venues) || !overs || !startDate || !Array.isArray(matchTimes) || !matchesPerDay) {
+            throw new ApiError(400, "All fields are required, including groups, venues, matchTimes, and matchesPerDay.");
+        }
+
+        const matches = [];
+        let matchDate = new Date(startDate);
+        let venueIndex = 0;
+        let dailyMatchCount = 0;
+
+        // Loop through each group to create matches
+        for (const group of groups) {
+            if (!Array.isArray(group) || group.length < 2) {
+                throw new ApiError(400, "Each group must contain at least two teams.");
+            }
+
+            // Generate matches for each pair of teams within the group
+            for (let i = 0; i < group.length; i++) {
+                for (let j = i + 1; j < group.length; j++) {
+                    const team1 = group[i];
+                    const team2 = group[j];
+
+                    // Schedule match time
+                    const timeSlotIndex = dailyMatchCount % matchTimes.length;
+                    const matchTime = new Date(`${matchDate.toISOString().split('T')[0]}T${matchTimes[timeSlotIndex]}`);
+
+                    // Prepare match data
+                    const matchData = {
+                        teams: [team1, team2],
+                        round: round.trim(),
+                        venue: venues[venueIndex],  // Assign venue based on index
+                        overs: Number(overs),
+                        date: matchDate.toISOString().split('T')[0],  // Format date for match
+                        time: matchTime.toISOString().split('T')[1],  // Format time for match
+                        tournament: tournamentId,
+                        status: 'scheduled'
+                    };
+
+                    matches.push(matchData);
+
+                    // Update counters for venue and daily match count
+                    venueIndex = (venueIndex + 1) % venues.length;  // Rotate through venues
+                    dailyMatchCount++;
+
+                    // Check if we've reached the match limit for the day
+                    if (dailyMatchCount === matchesPerDay) {
+                        dailyMatchCount = 0;  // Reset for the next day
+                        matchDate.setDate(matchDate.getDate() + 1);  // Move to the next day
+                    }
+                }
+            }
+        }
+
+        // Create and save matches in the database
+        const createdMatches = await Match.insertMany(matches);
+
+        return res.status(201).json(
+            new ApiResponse(201, createdMatches, "All matches created and scheduled successfully.")
+        );
+
+    } catch (error) {
+        throw new ApiError(500, error.message || "Internal Server Error");
+    }
+});
+
 const getMatchesByTournamentId = asyncHandler(async (req, res) => {
     try {
         const { tournamentId } = req.params;
@@ -833,11 +902,14 @@ const createPost = asyncHandler(async (req, res) => {
 
     try {
         const { matchId, descriptions } = req.body;
-        console.log(req.body);
 
+        // Ensure descriptions is an array (in case it's a single string)
+        const descriptionArray = Array.isArray(descriptions) ? descriptions : [descriptions];
+
+        console.log("descriptionArray:", descriptionArray);
 
         // Validate input data
-        if (!matchId || !descriptions || descriptions.length === 0) {
+        if (!matchId || !descriptionArray || descriptionArray.length === 0) {
             throw new ApiError(400, "Match ID and image descriptions are required.");
         }
 
@@ -856,12 +928,16 @@ const createPost = asyncHandler(async (req, res) => {
         );
 
         console.log("uploadedImages", uploadedImages);
+        if (!uploadedImages) {
+            throw new ApiError(500, error.message || "Images Req");
+
+        }
 
         // Prepare and save posts for each image-description pair
         const createdPosts = await Promise.all(
             uploadedImages.map(async (imageUrl, index) => {
                 const postData = {
-                    description: descriptions[index]?.trim() || "",
+                    description: descriptionArray[index]?.trim() || "",
                     matchId: matchId.trim(),
                     postPhotoUrl: imageUrl
                 };
@@ -884,6 +960,7 @@ const createPost = asyncHandler(async (req, res) => {
         throw new ApiError(500, error.message || "Error creating posts");
     }
 });
+
 const getPostsByMatchId = asyncHandler(async (req, res) => {
     try {
         const { matchId } = req.params; // Extract matchId from the request parameters

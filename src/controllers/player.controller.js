@@ -258,8 +258,26 @@ const getAvailablePlayersForTeam = asyncHandler(async (req, res) => {
 });
 const updatePlayerStats = async (req, res) => {
     const { matchId } = req.body;
-
     try {
+
+        // Step 1: Reset all players' stats to 0 before updating based on the match
+        // await Player.updateMany({}, {
+        //     $set: {
+        //         "stats.matches": 0,
+        //         "stats.battingInnings": 0,
+        //         "stats.runs": 0,
+        //         "stats.ballFaced": 0,
+        //         "stats.highestScore": 0,
+        //         "stats.centuries": 0,
+        //         "stats.halfCenturies": 0,
+        //         "stats.bowlingInnings": 0,
+        //         "stats.runsConceded": 0,
+        //         "stats.wickets": 0,
+        //         "stats.FiveWickets": 0,
+        //         "stats.TenWickets": 0,
+        //         "stats.BB": ""
+        //     }
+        // });
         // Fetch the match data by ID
         const match = await Match.findById(matchId)
             .populate({
@@ -351,6 +369,7 @@ const updatePlayerStats = async (req, res) => {
                 await Player.findByIdAndUpdate(bowling.player, updateBowlingStats);
             }
         }
+        await Match.findByIdAndUpdate(matchId, { $set: { playerStats: true } });
 
         // Send a success response
         res.status(200).json({ message: "Player stats updated successfully!" });
