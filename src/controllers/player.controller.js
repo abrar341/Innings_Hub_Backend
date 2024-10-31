@@ -10,27 +10,12 @@ import Match from "../models/match.model.js";
 const createPlayer = asyncHandler(async (req, res) => {
     console.log(req.body);
     try {
-        const {
-            playerName,
-            city,
-            phone,
-            email,
-            DOB,
-            jersyNo,
-            role,
-            battingStyle,
-            bowlingStyle,
-            associatedClub,
-            CNIC
+        const { playerName, city, phone, email, DOB, jersyNo, role, battingStyle, bowlingStyle, associatedClub, CNIC
         } = req.body;
-
-        // console.log(associatedClub);
-
 
         if (!playerName?.trim() || !DOB || !role?.trim()) {
             throw new ApiError(400, "Some Field are requires");
         }
-
         // Handle profile picture upload
         let profilePictureLocalPath;
         if (req.files && Array.isArray(req.files.profilePicture) && req.files.profilePicture.length > 0) {
@@ -57,7 +42,6 @@ const createPlayer = asyncHandler(async (req, res) => {
         await player.save();
         const createdPlayer = await Player.findById(player._id)
             .select('playerName city phone email profilePicture DOB jersyNo role battingStyle bowlingStyle CNIC');
-        // console.log("createdPlayer", createdPlayer);
 
         return res.status(201).json(
             new ApiResponse(201, createdPlayer, "Player created successfully")

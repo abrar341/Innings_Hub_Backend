@@ -171,19 +171,15 @@ const getSingleTeamDetail = asyncHandler(async (req, res) => {
 });
 const addPlayerToTeam = asyncHandler(async (req, res) => {
     const { teamId, playerIds } = req.body;
-    console.log(req.body);
-
     // Validate required fields
     if (!teamId || !playerIds || !Array.isArray(playerIds) || playerIds.length === 0) {
         throw new ApiError(400, "Team ID and Player IDs are required");
     }
-
     // Find the team by teamId
     const team = await Team.findById(teamId);
     if (!team) {
         throw new ApiError(404, "Team not found");
     }
-
     // Add players to the team, ensuring no duplicates
     const existingPlayers = team.players.map(player => player.toString());
     const newPlayers = playerIds.filter(playerId => !existingPlayers.includes(playerId));
@@ -193,9 +189,7 @@ const addPlayerToTeam = asyncHandler(async (req, res) => {
     }
     // Add the new players to the players array
     team.players.push(...newPlayers);
-    // Save the updated team
     await team.save();
-    // Update the Player models
     const playerUpdates = newPlayers.map(async (playerId) => {
         const player = await Player.findById(playerId);
         if (player) {

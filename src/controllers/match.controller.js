@@ -6,6 +6,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import Match from "../models/match.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { Post } from "../models/post.model.js";
+import { Round } from "../models/rounds.model.js";
 
 const createMatch = asyncHandler(async (req, res) => {
     try {
@@ -53,74 +54,185 @@ const createMatch = asyncHandler(async (req, res) => {
     }
 });
 
-const createAndScheduleMatches = asyncHandler(async (req, res) => {
+const scheduleMatches = asyncHandler(async (req, res) => {
     try {
-        const { tournamentId, round, groups, venues, overs, startDate, matchTimes, matchesPerDay } = req.body;
+        const { tournamentId, round: roundId, venues, overs, startDate, matchTimes, matchesPerDay } = req.body;
 
-        // Validate required fields
-        if (!tournamentId || !round?.trim() || !groups || !Array.isArray(groups) || !venues || !Array.isArray(venues) || !overs || !startDate || !Array.isArray(matchTimes) || !matchesPerDay) {
-            throw new ApiError(400, "All fields are required, including groups, venues, matchTimes, and matchesPerDay.");
+        // Find the round with groups and validate schedule type
+        const round = await Round.findById(roundId);
+        console.log("round", round);
+
+        if (!round) {
+            return res.status(400).json({ error: "Invalid round or unsupported schedule type." });
         }
+        // Knockout scheduling
 
-        const matches = [];
+        // if (round.scheduleType === 'knockout') {
+        //     // Parse venues if they are in string format
+        //     const venueList = typeof venues === 'string' ? venues.split(',').map(v => v.trim()) : venues;
+
+        //     // Initialize scheduling variables
+        //     let matchDate = new Date(startDate);
+        //     if (isNaN(matchDate)) throw new Error("Invalid start date format.");
+
+        //     let venueIndex = 0;
+        //     let matchesScheduled = 0;
+
+        //     console.log("round.groups", round.groups);
+
+        //     if (!round.groups || round.groups.length !== 1 || !round.groups[0].teams) {
+        //         return res.status(400).json({ error: "Invalid group structure for knockout format." });
+        //     }
+
+        //     let teams = round.groups[0].teams.slice(); // Use teams from the single group
+        //     const matchIds = [];
+
+        //     while (teams.length > 1) {
+        //         const nextStageTeams = []; // Store advancing teams for the next stage
+
+        //         for (let i = 0; i < teams.length; i += 2) {
+        //             if (i + 1 >= teams.length) {
+        //                 // If an odd team is left, they advance automatically to the next stage
+        //                 nextStageTeams.push(teams[i]);
+        //                 continue;
+        //             }
+
+        //             const team1 = teams[i];
+        //             const team2 = teams[i + 1];
+
+        //             // Determine match time slot
+        //             const timeSlotIndex = matchesScheduled % matchTimes.length;
+        //             const [hours, minutes] = matchTimes[timeSlotIndex].split(":").map(Number);
+        //             if (isNaN(hours) || isNaN(minutes)) throw new Error("Invalid match time format.");
+
+        //             // Set match time for the current date
+        //             const matchTime = new Date(matchDate);
+        //             matchTime.setHours(hours, minutes);
+
+        //             // Define match data
+        //             const matchData = {
+        //                 teams: [team1, team2],
+        //                 round: roundId,
+        //                 venue: venueList[venueIndex],
+        //                 overs: Number(overs),
+        //                 date: matchDate.toISOString().split('T')[0], // ISO formatted date
+        //                 time: matchTime.toISOString().split('T')[1], // ISO formatted time
+        //                 tournament: tournamentId,
+        //                 status: 'scheduled',
+        //             };
+
+        //             // Create match in the database and store its ID
+        //             const createdMatch = await Match.create(matchData);
+        //             matchIds.push(createdMatch._id);
+
+        //             // Simulate "winner" advancing to next stage (replace with real logic after match results)
+        //             // nextStageTeams.push(createdMatch._id);
+
+        //             // Update counters and indices
+        //             venueIndex = (venueIndex + 1) % venueList.length;
+        //             matchesScheduled++;
+
+        //             // Move to the next day if daily match limit is reached
+        //             if (matchesScheduled % matchesPerDay === 0) {
+        //                 matchDate.setDate(matchDate.getDate() + 1);
+        //             }
+        //         }
+
+        //         // Advance to the next stage with "winning" teams
+        //         // teams = nextStageTeams;
+        //     }
+
+        //     // Attach match IDs to the single group in the round
+        //     round.groups[0].matches.push(...matchIds);
+        //     await round.save();
+
+        //     return res.status(201).json({
+        //         message: "Knockout matches scheduled successfully.",
+        //         roundId,
+        //         tournamentId,
+        //     });
+        // }
+
+        // Parse venues if they are in string format
+        const venueList = typeof venues === 'string' ? venues.split(',').map(v => v.trim()) : venues;
+
+        // Initialize scheduling variables
         let matchDate = new Date(startDate);
-        let venueIndex = 0;
-        let dailyMatchCount = 0;
+        if (isNaN(matchDate)) throw new Error("Invalid start date format.");
 
-        // Loop through each group to create matches
-        for (const group of groups) {
-            if (!Array.isArray(group) || group.length < 2) {
-                throw new ApiError(400, "Each group must contain at least two teams.");
+        let venueIndex = 0;
+        let matchesScheduled = 0;
+
+        for (const group of round.groups) {
+            if (!group.teams || group.teams.length < 2) {
+                return res.status(400).json({ error: "Each group must contain at least two teams." });
             }
 
-            // Generate matches for each pair of teams within the group
-            for (let i = 0; i < group.length; i++) {
-                for (let j = i + 1; j < group.length; j++) {
-                    const team1 = group[i];
-                    const team2 = group[j];
+            const matchIds = [];
 
-                    // Schedule match time
-                    const timeSlotIndex = dailyMatchCount % matchTimes.length;
-                    const matchTime = new Date(`${matchDate.toISOString().split('T')[0]}T${matchTimes[timeSlotIndex]}`);
+            // Generate matches for each pair of teams in the group
+            for (let i = 0; i < group.teams.length; i++) {
+                for (let j = i + 1; j < group.teams.length; j++) {
+                    const team1 = group.teams[i];
+                    const team2 = group.teams[j];
 
-                    // Prepare match data
+                    // Calculate the time slot and match time
+                    const timeSlotIndex = matchesScheduled % matchTimes.length;
+                    const [hours, minutes] = matchTimes[timeSlotIndex].split(":").map(Number);
+
+                    if (isNaN(hours) || isNaN(minutes)) throw new Error("Invalid match time format in matchTimes array.");
+
+                    // Set match time for the current date
+                    const matchTime = new Date(matchDate);
+                    matchTime.setHours(hours, minutes);
+
+                    // Construct match data object
                     const matchData = {
                         teams: [team1, team2],
-                        round: round.trim(),
-                        venue: venues[venueIndex],  // Assign venue based on index
+                        round: roundId,
+                        venue: venueList[venueIndex],
                         overs: Number(overs),
-                        date: matchDate.toISOString().split('T')[0],  // Format date for match
-                        time: matchTime.toISOString().split('T')[1],  // Format time for match
+                        date: matchDate.toISOString().split('T')[0], // ISO formatted date
+                        time: matchTime.toISOString().split('T')[1], // ISO formatted time
                         tournament: tournamentId,
                         status: 'scheduled'
                     };
 
-                    matches.push(matchData);
+                    // Save match and store its ID
+                    const createdMatch = await Match.create(matchData);
+                    matchIds.push(createdMatch._id);
 
-                    // Update counters for venue and daily match count
-                    venueIndex = (venueIndex + 1) % venues.length;  // Rotate through venues
-                    dailyMatchCount++;
+                    // Update counters and indices
+                    venueIndex = (venueIndex + 1) % venueList.length;
+                    matchesScheduled++;
 
-                    // Check if we've reached the match limit for the day
-                    if (dailyMatchCount === matchesPerDay) {
-                        dailyMatchCount = 0;  // Reset for the next day
-                        matchDate.setDate(matchDate.getDate() + 1);  // Move to the next day
+                    // ** Increment day if daily match limit is reached **
+                    if (matchesScheduled % matchesPerDay === 0) {
+                        console.log("new date");
+
+                        matchDate.setDate(matchDate.getDate() + 1);
                     }
                 }
             }
+
+            // Attach created matches to the group
+            group.matches.push(...matchIds);
         }
 
-        // Create and save matches in the database
-        const createdMatches = await Match.insertMany(matches);
+        // Save the updated round with references to the matches
+        await round.save();
 
-        return res.status(201).json(
-            new ApiResponse(201, createdMatches, "All matches created and scheduled successfully.")
-        );
-
+        return res.status(201).json({
+            message: "Matches scheduled and added to groups successfully.",
+            roundId,
+            tournamentId,
+        });
     } catch (error) {
-        throw new ApiError(500, error.message || "Internal Server Error");
+        console.error("Error scheduling matches:", error);
+        res.status(500).json({ error: error.message || "Internal Server Error" });
     }
 });
+
 
 const getMatchesByTournamentId = asyncHandler(async (req, res) => {
     try {
@@ -992,11 +1104,45 @@ const getPostsByMatchId = asyncHandler(async (req, res) => {
     }
 });
 
+const deleteMatchesByRound = asyncHandler(async (req, res) => {
+    try {
+        const { roundId } = req.params;
+
+        // Find the round by ID
+        const round = await Round.findById(roundId);
+        if (!round) {
+            return res.status(404).json({ error: "Round not found." });
+        }
+
+        // Collect all match IDs to delete and clear matches arrays in each group
+        const matchIdsToDelete = [];
+        round.groups.forEach(group => {
+            matchIdsToDelete.push(...group.matches);
+            group.matches = []; // Clear the matches array in each group
+        });
+
+        // Perform deletion of all matches in one operation
+        await Match.deleteMany({ _id: { $in: matchIdsToDelete } });
+
+        // Save the round with cleared matches arrays
+        await round.save();
+
+        return res.status(200).json({
+            message: "All matches for the specified round have been deleted, and match IDs have been removed from the groups.",
+            roundId,
+            deletedMatchCount: matchIdsToDelete.length
+        });
+    } catch (error) {
+        console.error("Error deleting matches by round:", error);
+        res.status(500).json({ error: error.message || "Internal Server Error" });
+    }
+});
+
 
 
 
 
 
 export {
-    createMatch, createPost, getPostsByMatchId, getMatchesByTeamId, getMatchesByTournamentId, getMatchById, startMatch, initializePlayers, getAllMatches
+    createMatch, createPost, getPostsByMatchId, getMatchesByTeamId, getMatchesByTournamentId, getMatchById, startMatch, initializePlayers, getAllMatches, scheduleMatches, deleteMatchesByRound
 }

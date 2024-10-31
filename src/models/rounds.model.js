@@ -15,7 +15,12 @@ const roundSchema = new Schema({
         ref: 'Tournament',
         required: true,
     },
-    // Optional: Array of groups
+    qualifiersCount: {
+        type: Number,
+        required: true,
+        default: 1, // Specifies the number of teams that qualify for the next round from each group in this round
+    },
+    // Array of groups
     groups: [{
         groupName: {
             type: String,
@@ -23,7 +28,7 @@ const roundSchema = new Schema({
         },
         // Teams in the group
         teams: [{
-            type: mongoose.Schema.Types.ObjectId, // Assuming teams are identified by ID or some identifier
+            type: mongoose.Schema.Types.ObjectId,
             ref: 'Team'
         }],
         // Array of Match references
@@ -34,7 +39,7 @@ const roundSchema = new Schema({
         // Standings for each team in the group
         standings: [{
             team: {
-                type: mongoose.Schema.Types.ObjectId, // Reference to the team
+                type: mongoose.Schema.Types.ObjectId,
                 ref: 'Team',
                 required: true,
             },
@@ -60,11 +65,23 @@ const roundSchema = new Schema({
             },
             netRunRate: {
                 type: Number,
-                default: 0, // Used as a tie-breaker in cricket
+                default: 0,
             },
         }],
     }],
+    // Teams that qualify for the next round
+    qualifiedTeams: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Team'
+    }],
+    completed: {
+        type: Boolean,
+        default: false
+    },
+    isFinalRound: {
+        type: Boolean,
+        default: false,
+    },
 }, { timestamps: true });
-
 
 export const Round = mongoose.model('Round', roundSchema);

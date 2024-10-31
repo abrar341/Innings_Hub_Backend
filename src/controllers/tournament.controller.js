@@ -453,16 +453,14 @@ const getSquadPlayers = asyncHandler(async (req, res) => {
         throw new ApiError(500, error.message || 'Internal Server Error');
     }
 });
+
+
 const RegisterTeamsToTournament = asyncHandler(async (req, res) => {
     const { tournamentId, teams } = req.body;
-    console.log(req.body);
-
-
     // Validate required fields
     if (!tournamentId || !teams || !Array.isArray(teams) || teams.length === 0) {
         throw new ApiError(400, "Tournament ID and teams (with players) are required");
     }
-
     // Find the tournament by ID
     const tournament = await Tournament.findById(tournamentId);
     if (!tournament) {
@@ -481,10 +479,8 @@ const RegisterTeamsToTournament = asyncHandler(async (req, res) => {
             console.log(`Squad for team ${teamId} already exists for this tournament.`);
             continue;
         }
-
         // Check for duplicate players (removing any duplicates)
         const uniquePlayers = [...new Set(players)];
-
         // Create a new squad with pending status
         try {
             const squad = new Squad({
@@ -494,11 +490,9 @@ const RegisterTeamsToTournament = asyncHandler(async (req, res) => {
                 players: uniquePlayers,
                 status: 'pending' // Set the squad status to pending
             });
-
             // Save the squad to the database
             await squad.save();
             createdSquads.push(squad);
-
             // Add squad ID to the tournament's squads array
             tournament.squads.push(squad._id);
         } catch (error) {

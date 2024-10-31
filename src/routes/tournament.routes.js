@@ -4,6 +4,7 @@ import { addTeamsToTournaments, createTournament, deleteTournament, getAllTourna
 import { upload } from "../middlewares/multer.middleware.js"
 import { addPlayerToSquad, approveSquadById, getAllSquads } from "../controllers/squad.controller.js";
 import { createRound, deleteRound, getRoundsbyTournamentId } from "../controllers/round.controller.js";
+import { deleteMatchesByRound, scheduleMatches } from "../controllers/match.controller.js";
 
 
 const router = Router()
@@ -45,6 +46,8 @@ router.route("/approveSquadById/:squadId").patch(approveSquadById)
 router.route("/createRound").post(createRound)
 router.route("/getRounds/:tournamentId").get(getRoundsbyTournamentId)
 router.route("/deleteRound/:roundId").delete(deleteRound)
+router.route("/scheduleMatches").post(scheduleMatches)
+router.route("/deleteMatchesByRound/:roundId").delete(deleteMatchesByRound)
 
 
 

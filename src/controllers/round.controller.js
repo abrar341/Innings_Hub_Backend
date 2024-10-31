@@ -10,13 +10,12 @@ import mongoose from "mongoose";
 const createRound = asyncHandler(async (req, res) => {
     try {
         console.log("Request Body:", req.body);
-        const { roundName, scheduleType, tournamentId, numberOfGroups, groups } = req.body;
-
+        const { roundName, scheduleType, tournamentId, numberOfGroups, groups, qualifiersPerGroup } = req.body;
+        console.log("qualifiersPerGroup", qualifiersPerGroup);
         // Step 1: Validate the input
         if (!tournamentId || !roundName || !scheduleType || !numberOfGroups || !groups) {
             throw new ApiError(400, 'Required fields are missing.');
         }
-
         // Step 2: Verify if the tournament exists
         const tournament = await Tournament.findById(tournamentId);
         if (!tournament) {
@@ -74,6 +73,7 @@ const createRound = asyncHandler(async (req, res) => {
             scheduleType,
             tournament: tournamentId,
             groups: formattedGroups,
+            qualifiersCount: qualifiersPerGroup
         });
 
         console.log("newRound", newRound);
@@ -89,7 +89,6 @@ const createRound = asyncHandler(async (req, res) => {
         throw new ApiError(500, error.message);
     }
 });
-
 
 const getRoundsbyTournamentId = asyncHandler(async (req, res) => {
     try {
