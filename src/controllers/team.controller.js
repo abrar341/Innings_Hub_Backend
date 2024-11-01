@@ -213,7 +213,6 @@ const addPlayerToTeam = asyncHandler(async (req, res) => {
     );
 });
 
-
 const removePlayerFromTeam = asyncHandler(async (req, res) => {
     const { teamId, playerId } = req.body;
     console.log(teamId, playerId);

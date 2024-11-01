@@ -110,7 +110,8 @@ const getRoundsbyTournamentId = asyncHandler(async (req, res) => {
         // Step 3: Fetch rounds associated with the given tournamentId
         const rounds = await Round.find({ tournament: tournamentId })
             .populate('groups.teams', 'teamName teamLogo') // Optionally populate team details
-            .populate('groups.standings.team', 'teamName teamLogo');  // Optionally populate team details
+            .populate('groups.standings.team', 'teamName teamLogo')  // Optionally populate team details
+            .populate('qualifiedTeams', 'teamName teamLogo');  // Optionally populate team details
 
 
 
