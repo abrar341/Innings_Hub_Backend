@@ -65,94 +65,11 @@ const scheduleMatches = asyncHandler(async (req, res) => {
         if (!round) {
             return res.status(400).json({ error: "Invalid round or unsupported schedule type." });
         }
-        // Knockout scheduling
-
-        // if (round.scheduleType === 'knockout') {
-        //     // Parse venues if they are in string format
-        //     const venueList = typeof venues === 'string' ? venues.split(',').map(v => v.trim()) : venues;
-
-        //     // Initialize scheduling variables
-        //     let matchDate = new Date(startDate);
-        //     if (isNaN(matchDate)) throw new Error("Invalid start date format.");
-
-        //     let venueIndex = 0;
-        //     let matchesScheduled = 0;
-
-        //     console.log("round.groups", round.groups);
-
-        //     if (!round.groups || round.groups.length !== 1 || !round.groups[0].teams) {
-        //         return res.status(400).json({ error: "Invalid group structure for knockout format." });
-        //     }
-
-        //     let teams = round.groups[0].teams.slice(); // Use teams from the single group
-        //     const matchIds = [];
-
-        //     while (teams.length > 1) {
-        //         const nextStageTeams = []; // Store advancing teams for the next stage
-
-        //         for (let i = 0; i < teams.length; i += 2) {
-        //             if (i + 1 >= teams.length) {
-        //                 // If an odd team is left, they advance automatically to the next stage
-        //                 nextStageTeams.push(teams[i]);
-        //                 continue;
-        //             }
-
-        //             const team1 = teams[i];
-        //             const team2 = teams[i + 1];
-
-        //             // Determine match time slot
-        //             const timeSlotIndex = matchesScheduled % matchTimes.length;
-        //             const [hours, minutes] = matchTimes[timeSlotIndex].split(":").map(Number);
-        //             if (isNaN(hours) || isNaN(minutes)) throw new Error("Invalid match time format.");
-
-        //             // Set match time for the current date
-        //             const matchTime = new Date(matchDate);
-        //             matchTime.setHours(hours, minutes);
-
-        //             // Define match data
-        //             const matchData = {
-        //                 teams: [team1, team2],
-        //                 round: roundId,
-        //                 venue: venueList[venueIndex],
-        //                 overs: Number(overs),
-        //                 date: matchDate.toISOString().split('T')[0], // ISO formatted date
-        //                 time: matchTime.toISOString().split('T')[1], // ISO formatted time
-        //                 tournament: tournamentId,
-        //                 status: 'scheduled',
-        //             };
-
-        //             // Create match in the database and store its ID
-        //             const createdMatch = await Match.create(matchData);
-        //             matchIds.push(createdMatch._id);
-
-        //             // Simulate "winner" advancing to next stage (replace with real logic after match results)
-        //             // nextStageTeams.push(createdMatch._id);
-
-        //             // Update counters and indices
-        //             venueIndex = (venueIndex + 1) % venueList.length;
-        //             matchesScheduled++;
-
-        //             // Move to the next day if daily match limit is reached
-        //             if (matchesScheduled % matchesPerDay === 0) {
-        //                 matchDate.setDate(matchDate.getDate() + 1);
-        //             }
-        //         }
-
-        //         // Advance to the next stage with "winning" teams
-        //         // teams = nextStageTeams;
-        //     }
-
-        //     // Attach match IDs to the single group in the round
-        //     round.groups[0].matches.push(...matchIds);
-        //     await round.save();
-
-        //     return res.status(201).json({
-        //         message: "Knockout matches scheduled successfully.",
-        //         roundId,
-        //         tournamentId,
-        //     });
-        // }
-
+        // Check if matches are already scheduled for this round
+        const matchesExist = round.groups.some(group => group.matches && group.matches.length > 0);
+        if (matchesExist) {
+            throw new ApiError(400, "Matches are already scheduled for this round.");
+        }
         // Parse venues if they are in string format
         const venueList = typeof venues === 'string' ? venues.split(',').map(v => v.trim()) : venues;
 
@@ -163,18 +80,81 @@ const scheduleMatches = asyncHandler(async (req, res) => {
         let venueIndex = 0;
         let matchesScheduled = 0;
 
-        for (const group of round.groups) {
-            if (!group.teams || group.teams.length < 2) {
-                return res.status(400).json({ error: "Each group must contain at least two teams." });
+        if (round.scheduleType === 'round-robin') {
+            // Round-robin scheduling logic
+            for (const group of round.groups) {
+                if (!group.teams || group.teams.length < 2) {
+                    return res.status(400).json({ error: "Each group must contain at least two teams." });
+                }
+
+                const matchIds = [];
+
+                // Generate matches for each pair of teams in the group
+                for (let i = 0; i < group.teams.length; i++) {
+                    for (let j = i + 1; j < group.teams.length; j++) {
+                        const team1 = group.teams[i];
+                        const team2 = group.teams[j];
+
+
+
+                        // Calculate the time slot and match time, handling cases with only one time
+                        const timeSlotIndex = matchesScheduled % matchTimes.length;
+                        const [hours, minutes] = matchTimes[timeSlotIndex % matchTimes.length].split(":").map(Number);
+
+                        if (isNaN(hours) || isNaN(minutes)) throw new Error("Invalid match time format in matchTimes array.");
+
+                        // Set match time for the current date
+                        const matchTime = new Date(matchDate);
+                        matchTime.setHours(hours, minutes);
+
+                        // Construct match data object
+                        const matchData = {
+                            teams: [team1, team2],
+                            round: roundId,
+                            venue: venueList[venueIndex],
+                            overs: Number(overs),
+                            date: matchDate.toISOString().split('T')[0],
+                            time: matchTime.toISOString().split('T')[1],
+                            tournament: tournamentId,
+                            status: 'scheduled'
+                        };
+
+                        // Save match and store its ID
+                        const createdMatch = await Match.create(matchData);
+                        matchIds.push(createdMatch._id);
+
+                        // Update counters and indices
+                        venueIndex = (venueIndex + 1) % venueList.length;
+                        matchesScheduled++;
+
+                        // Increment day if daily match limit is reached
+                        if (matchesScheduled % matchesPerDay === 0) {
+                            console.log("new date");
+                            matchDate.setDate(matchDate.getDate() + 1);
+                        }
+                    }
+                }
+
+                // Attach created matches to the group
+                group.matches.push(...matchIds);
             }
+        } else if (round.scheduleType === 'knockout') {
+            // Knockout scheduling logic
+            for (const group of round.groups) {
+                const { teams } = group;
+                if (!teams || teams.length < 2) {
+                    return res.status(400).json({ error: "Each group must contain at least two teams for knockout." });
+                }
 
-            const matchIds = [];
+                const shuffledTeams = [...teams].sort(() => Math.random() - 0.5); // Shuffle teams randomly
+                const matchIds = [];
 
-            // Generate matches for each pair of teams in the group
-            for (let i = 0; i < group.teams.length; i++) {
-                for (let j = i + 1; j < group.teams.length; j++) {
-                    const team1 = group.teams[i];
-                    const team2 = group.teams[j];
+                // Pair teams randomly to play matches
+                for (let i = 0; i < shuffledTeams.length; i += 2) {
+                    if (i + 1 >= shuffledTeams.length) break; // Skip if there's an odd team
+
+                    const team1 = shuffledTeams[i];
+                    const team2 = shuffledTeams[i + 1];
 
                     // Calculate the time slot and match time
                     const timeSlotIndex = matchesScheduled % matchTimes.length;
@@ -192,8 +172,8 @@ const scheduleMatches = asyncHandler(async (req, res) => {
                         round: roundId,
                         venue: venueList[venueIndex],
                         overs: Number(overs),
-                        date: matchDate.toISOString().split('T')[0], // ISO formatted date
-                        time: matchTime.toISOString().split('T')[1], // ISO formatted time
+                        date: matchDate.toISOString().split('T')[0],
+                        time: matchTime.toISOString().split('T')[1],
                         tournament: tournamentId,
                         status: 'scheduled'
                     };
@@ -206,17 +186,16 @@ const scheduleMatches = asyncHandler(async (req, res) => {
                     venueIndex = (venueIndex + 1) % venueList.length;
                     matchesScheduled++;
 
-                    // ** Increment day if daily match limit is reached **
+                    // Increment day if daily match limit is reached
                     if (matchesScheduled % matchesPerDay === 0) {
                         console.log("new date");
-
                         matchDate.setDate(matchDate.getDate() + 1);
                     }
                 }
-            }
 
-            // Attach created matches to the group
-            group.matches.push(...matchIds);
+                // Attach created matches to the group
+                group.matches.push(...matchIds);
+            }
         }
 
         // Save the updated round with references to the matches
@@ -232,6 +211,7 @@ const scheduleMatches = asyncHandler(async (req, res) => {
         res.status(500).json({ error: error.message || "Internal Server Error" });
     }
 });
+
 
 
 const getMatchesByTournamentId = asyncHandler(async (req, res) => {

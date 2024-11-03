@@ -52,7 +52,7 @@ const teamSchema = new Schema({
         ref: 'Player',
     },
     // Tournaments in which the team has participated
-    tournamentsPlayed: [{
+    tournamentsWon: [{
         type: Schema.Types.ObjectId,
         ref: 'Tournament',
     }],

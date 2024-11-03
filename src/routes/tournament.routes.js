@@ -3,7 +3,7 @@ import { Router } from "express";
 import { addTeamsToTournaments, createTournament, deleteTournament, getAllTournaments, getAvailablePlayersForTournament, getAvailableTeamsForTournament, getConcludedTournaments, getOngoingTournaments, getSingleTournamentDetail, getSingleTournamentSquads, getTeamsInTournament, getUpcomingTournaments, removePlayerFromSquad, removeTeamFromTournament, RegisterTeamsToTournament, updateTournament } from "../controllers/tournament.controller.js";
 import { upload } from "../middlewares/multer.middleware.js"
 import { addPlayerToSquad, approveSquadById, getAllSquads } from "../controllers/squad.controller.js";
-import { createRound, deleteRound, getRoundsbyTournamentId } from "../controllers/round.controller.js";
+import { createRound, deleteRound, getRoundsbyTournamentId, updateStandings } from "../controllers/round.controller.js";
 import { deleteMatchesByRound, scheduleMatches } from "../controllers/match.controller.js";
 
 
@@ -48,6 +48,7 @@ router.route("/getRounds/:tournamentId").get(getRoundsbyTournamentId)
 router.route("/deleteRound/:roundId").delete(deleteRound)
 router.route("/scheduleMatches").post(scheduleMatches)
 router.route("/deleteMatchesByRound/:roundId").delete(deleteMatchesByRound)
+router.route("/updateStandings").post(updateStandings)
 
 
 

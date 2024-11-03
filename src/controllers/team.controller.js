@@ -149,15 +149,16 @@ const getSingleTeamDetail = asyncHandler(async (req, res) => {
                 path: 'players',
                 populate: {
                     path: 'currentTeam',
-                    select: 'teamName teamLogo', // Only populate teamName and teamLogo
+                    select: 'teamName teamLogo' // Only populate teamName and teamLogo
                 }
+            })
+            .populate({
+                path: 'tournamentsWon',
+                select: 'name season' // Only populate name of each tournament
             });
-
-
         if (!team) {
             throw new ApiError(404, "Team not found");
         }
-
         return res.status(200).json(
             new ApiResponse(200, team, "Team details fetched successfully")
         );

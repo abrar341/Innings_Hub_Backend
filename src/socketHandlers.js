@@ -139,7 +139,7 @@ export const setupSocketHandlers = (io) => {
                         const maxWickets = 10; // Assuming 10 wickets in an inning
 
                         // If team batting second has more runs, they win
-                        if (match.innings[1].runs > match.innings[0].runs + 1) {
+                        if (match.innings[1].runs >= match.innings[0].runs + 1) {
                             match.result = {
                                 winner: secondInning.team, // Assuming `team` references the current team
                                 by: 'wickets',
