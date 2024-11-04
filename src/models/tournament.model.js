@@ -33,8 +33,6 @@ const tournamentSchema = new Schema({
     },
     tournamentType: {
         type: String,
-        required: true,
-        enum: ['Open', 'School', 'Club'],
         default: 'Club', // Adjust based on your app's requirements
     },
     season: {

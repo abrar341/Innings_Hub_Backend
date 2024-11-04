@@ -133,7 +133,7 @@ const getClubs = asyncHandler(async (req, res) => {
         }
 
         const clubs = await Club.find(query)
-            .populate('manager', 'email name');
+            .populate('manager');
         // .select('clubName type registrationStatus regDate'); // Adjust fields as needed
 
         if (!clubs) {

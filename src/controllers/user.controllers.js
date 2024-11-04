@@ -84,8 +84,12 @@ const getUserProfile = asyncHandler(async (req, res) => {
     const user = await User.findById(userId)
         .select('-password -refreshToken')
         .populate({
-            path: 'club', // Assuming 'club' is a reference field in the user schema
+            path: 'club', // Populating the club document
+            populate: {
+                path: 'manager', // Populating the manager field within the club
+            },
         });
+
 
     // If user doesn't exist, return an error
     if (!user) {
@@ -183,9 +187,11 @@ const loginUser = asyncHandler(async (req, res) => {
 
     // Find the logged-in user, populating the club details if the user is a manager
     const loggedInUser = await User.findById(user._id)
-        .select("-password -refreshToken")  // Exclude password and refreshToken
         .populate({
-            path: 'club', // Assuming clubId is the reference field in the user schema
+            path: 'club', // Populating the club document
+            populate: {
+                path: 'manager', // Populating the manager field within the club
+            },
         });
     // console.log(loggedInUser);
 

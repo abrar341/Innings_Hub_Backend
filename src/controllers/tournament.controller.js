@@ -309,7 +309,9 @@ const getSingleTournamentDetail = asyncHandler(async (req, res) => {
     // console.log("id", id);
 
     try {
-        const tournament = await Tournament.findById(id);  // Fetch the tournament from the database
+        const tournament = await Tournament.findById(id)
+            .populate('winner') // Populates the winner field (reference to a team or user)
+            .populate('teams');
 
         if (!tournament) {
             throw new ApiError(404, "Tournament not found");
