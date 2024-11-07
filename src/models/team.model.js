@@ -37,9 +37,7 @@ const teamSchema = new Schema({
     },
     teamtype: {
         type: String,
-        trim: true,
-        enum: ['senior', 'junior', 'other'],
-        // default: 'Club', // Adjust based on your app's requirements
+        default: 'senior', // Adjust based on your app's requirements
     },
     status: {
         type: String,

@@ -974,7 +974,9 @@ const getAllMatches = asyncHandler(async (req, res) => {
             })
             .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
             .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
-            .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' });
+            .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' })
+            .populate({ path: 'result.winner', model: 'Team' })
+            .populate({ path: 'round', model: 'Round' });
 
         // If no matches are found
         // if (!matches || matches.length === 0) {

@@ -19,12 +19,15 @@ const createClub = asyncHandler(async (req, res) => {
             managerEmail,
             managerPhone,
             managerAddress,
-            socialLink
+            socialLink,
+            // review // New field to check if it's a resubmission
         } = req.body;
 
+        const review = true;
+
         // Find user by managerEmail
-        const managerUser = await User.findOne({ email: managerEmail }).
-            select("-password -refreshToken")
+        const managerUser = await User.findOne({ email: managerEmail })
+            .select("-password -refreshToken");
         if (!managerUser) {
             throw new ApiError(404, "Manager not found with the provided email");
         }
@@ -35,7 +38,7 @@ const createClub = asyncHandler(async (req, res) => {
         }
 
         // Upload logo if present
-        const clubLogo = await uploadOnCloudinary(clubLogoLocalPath);
+        const clubLogo = clubLogoLocalPath ? await uploadOnCloudinary(clubLogoLocalPath) : null;
 
         // Prepare sanitized data for the club
         const sanitizedData = {
@@ -44,27 +47,57 @@ const createClub = asyncHandler(async (req, res) => {
             location: location?.trim(),
             yearEstablished: yearEstablished?.trim(),
             socialLink: socialLink?.trim(),
+            registrationStatus: 'pending',
             manager: managerUser._id // Set manager reference to the found user's ID
         };
 
-        // console.log("sanitizedData", sanitizedData);
-        const club = new Club(sanitizedData);
-        await club.save();
+        let club;
 
-        // After saving the club, update the manager's club reference
-        managerUser.club = club._id;
+        if (review) {
+            // If review is true, find the existing club and update it
+            club = await Club.findOneAndUpdate(
+                { manager: managerUser._id },
+                { $set: sanitizedData },
+                { new: true }
+            );
+            if (!club) {
+                throw new ApiError(404, "Club not found for review resubmission");
+            }
+        } else {
+            // Create new club if not a resubmission
+            club = new Club(sanitizedData);
+            await club.save();
+
+            // Update manager's club reference after saving the club
+            managerUser.club = club._id;
+        }
+
+        // Update manager's contact details
         managerUser.address = managerAddress;
-        const user = await managerUser.save();
+        managerUser.phone = managerPhone;
+        await managerUser.save();
 
-        // Fetch the created club with selected fields
-        const createdClub = await Club.findById(club._id)
-            .select('clubLogo clubName location');
+        // Populate the club details in the user object, including the manager details within the club
+        const user = await User.findById(managerUser._id)
+            .populate({
+                path: 'club',
+                populate: {
+                    path: 'manager',
+                    select: '-password -refreshToken' // Select fields to exclude sensitive info from manager
+                }
+            })
+            .select('-password -refreshToken'); // Exclude sensitive fields from the user object as well
+
+        // Fetch the created or updated club with selected fields
+        const savedClub = await Club.findById(club._id);
+        const message = review
+            ? "Club details updated for resubmission"
+            : "Club Registered for Approval successfully";
 
         return res.status(201).json(
-            new ApiResponse(201, { user, createdClub }, "Club Registered for Approval successfully")
+            new ApiResponse(201, { user, savedClub }, message)
         );
     } catch (error) {
-        // console.error("Error creating club:", error);
         throw new ApiError(500, error);
     }
 });

@@ -47,7 +47,19 @@ const createPlayer = asyncHandler(async (req, res) => {
             new ApiResponse(201, createdPlayer, "Player created successfully")
         );
     } catch (error) {
-        throw new ApiError(500, error);
+        console.log(error);
+
+        // Check for MongoDB duplicate key error
+        if (error.code === 11000) {
+            // Extract duplicate field name from the error message
+            const duplicateField = Object.keys(error.keyValue)[0];
+            const duplicateValue = error.keyValue[duplicateField];
+
+            throw new ApiError(400, `The ${duplicateField} "${duplicateValue}" is already taken. Please use a different ${duplicateField}.`);
+        }
+
+        // For other errors
+        throw new ApiError(500, "An error occurred while creating the player.");
     }
 });
 const getAllPlayers = asyncHandler(async (req, res) => {
