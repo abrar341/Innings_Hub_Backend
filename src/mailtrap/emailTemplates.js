@@ -107,7 +107,6 @@ export const WELCOME_EMAIL_TEMPLATE = `
     <h1 style="color: white; margin: 0;">Welcome to Our App, {name}!</h1>
   </div>
   <div style="background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-    <p>Hello {name},</p>
     <p>We're excited to have you on board! You’ve successfully verified your email, and your account is now active.</p>
     <p>Start exploring and make the most out of your experience by visiting your dashboard.</p>
     <p>If you have any questions or need support, feel free to reach out to our team at any time.</p>
@@ -115,6 +114,69 @@ export const WELCOME_EMAIL_TEMPLATE = `
   </div>
   <div style="text-align: center; margin-top: 20px; color: #888; font-size: 0.8em;">
     <p>This is an automated message, please do not reply to this email.</p>
+  </div>
+</body>
+</html>
+`;
+
+export const SCORER_WELCOME_EMAIL_TEMPLATE = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to the Scorer Team</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(to right, #4CAF50, #45a049); padding: 20px; text-align: center;">
+    <h1 style="color: white; margin: 0;">Welcome to the Team, {scorerName}!</h1>
+  </div>
+  <div style="background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+    <p>We’re thrilled to have you on board as a scorer in our cricket management system! Here are your login details to get started:</p>
+    
+    <p><strong>Username:</strong> {scorerEmail}</p>
+    <p><strong>Password:</strong> {scorerPassword}</p>
+
+    <p>Please keep your login credentials safe and secure. Once you log in, you’ll be able to view and manage your assigned matches.</p>
+    
+    <p>If you have any questions or need assistance, don’t hesitate to reach out to our support team.</p>
+    
+    <p>Welcome aboard and best wishes!<br>Your App Team</p>
+  </div>
+  <div style="text-align: center; margin-top: 20px; color: #888; font-size: 0.8em;">
+    <p>This is an automated message. Please do not reply to this email.</p>
+  </div>
+</body>
+</html>
+`;
+
+export const FORGOT_PASSWORD_EMAIL_TEMPLATE = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Reset</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(to right, #FF9800, #FF5722); padding: 20px; text-align: center;">
+    <h1 style="color: white; margin: 0;">Password Reset Request</h1>
+  </div>
+  <div style="background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+    <p>Hello, {userName},</p>
+    
+    <p>We received a request to reset your password for your account associated with this email:</p>
+    <p><strong>Email:</strong> {userEmail}</p>
+    <p><strong>New Password:</strong> {newPassword}</p>
+
+    <p>Please log in using this new password and change it to something secure at your earliest convenience.</p>
+
+    <p>If you did not request a password reset, please contact our support team immediately.</p>
+    
+    <p>Best regards,<br>Your App Team</p>
+  </div>
+  <div style="text-align: center; margin-top: 20px; color: #888; font-size: 0.8em;">
+    <p>This is an automated message. Please do not reply to this email.</p>
   </div>
 </body>
 </html>

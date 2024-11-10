@@ -57,6 +57,8 @@ const createMatch = asyncHandler(async (req, res) => {
 const scheduleMatches = asyncHandler(async (req, res) => {
     try {
         const { tournamentId, round: roundId, venues, overs, startDate, matchTimes, matchesPerDay } = req.body;
+        console.log(req.body);
+
 
         // Find the round with groups and validate schedule type
         const round = await Round.findById(roundId);
@@ -100,12 +102,15 @@ const scheduleMatches = asyncHandler(async (req, res) => {
                         // Calculate the time slot and match time, handling cases with only one time
                         const timeSlotIndex = matchesScheduled % matchTimes.length;
                         const [hours, minutes] = matchTimes[timeSlotIndex % matchTimes.length].split(":").map(Number);
+                        console.log("hours", hours, minutes, 0, 0);
 
                         if (isNaN(hours) || isNaN(minutes)) throw new Error("Invalid match time format in matchTimes array.");
 
                         // Set match time for the current date
                         const matchTime = new Date(matchDate);
-                        matchTime.setHours(hours, minutes);
+                        matchTime.setUTCHours(hours, minutes, 0, 0); // Setting seconds and milliseconds to 0 if needed
+                        console.log("matchTime", matchTime);
+
 
                         // Construct match data object
                         const matchData = {
@@ -118,6 +123,8 @@ const scheduleMatches = asyncHandler(async (req, res) => {
                             tournament: tournamentId,
                             status: 'scheduled'
                         };
+                        console.log("matchData", matchData);
+
 
                         // Save match and store its ID
                         const createdMatch = await Match.create(matchData);
@@ -211,8 +218,6 @@ const scheduleMatches = asyncHandler(async (req, res) => {
         res.status(500).json({ error: error.message || "Internal Server Error" });
     }
 });
-
-
 
 const getMatchesByTournamentId = asyncHandler(async (req, res) => {
     try {

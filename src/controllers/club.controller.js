@@ -20,10 +20,12 @@ const createClub = asyncHandler(async (req, res) => {
             managerPhone,
             managerAddress,
             socialLink,
-            // review // New field to check if it's a resubmission
+            review // New field to check if it's a resubmission
         } = req.body;
 
-        const review = true;
+        // const review = false;
+        console.log("req.body.review", review);
+
 
         // Find user by managerEmail
         const managerUser = await User.findOne({ email: managerEmail })
@@ -53,7 +55,7 @@ const createClub = asyncHandler(async (req, res) => {
 
         let club;
 
-        if (review) {
+        if (review === 'true') {
             // If review is true, find the existing club and update it
             club = await Club.findOneAndUpdate(
                 { manager: managerUser._id },
@@ -90,9 +92,9 @@ const createClub = asyncHandler(async (req, res) => {
 
         // Fetch the created or updated club with selected fields
         const savedClub = await Club.findById(club._id);
-        const message = review
-            ? "Club details updated for resubmission"
-            : "Club Registered for Approval successfully";
+        const message = review === 'true'
+            ? "Club details updated for resubmission..."
+            : "Club Registered for Approval successfully...";
 
         return res.status(201).json(
             new ApiResponse(201, { user, savedClub }, message)
@@ -239,5 +241,4 @@ export {
     getClubs,
     approveClub,
     rejectClub,
-
 }

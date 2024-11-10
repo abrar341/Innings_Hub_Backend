@@ -25,6 +25,9 @@ const userSchema = new Schema(
             trim: true,
             index: true
         },
+        profilePicture: {
+            type: String,
+        },
         password: {
             type: String,
             required: [true, 'Password is required']
