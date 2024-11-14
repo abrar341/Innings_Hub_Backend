@@ -5,7 +5,6 @@ import mongoose from "mongoose";
 export const setupSocketHandlers = (io) => {
     io.on('connection', (socket) => {
         console.log('A user connected');
-
         // Handling joining a specific match room
         socket.on('joinMatch', async (matchId) => {
             try {
@@ -40,6 +39,7 @@ export const setupSocketHandlers = (io) => {
                         path: 'innings.currentStriker',
                         model: 'Player'
                     })
+
                     .populate({
                         path: 'innings.previousBowler',
                         model: 'Player'
@@ -55,7 +55,9 @@ export const setupSocketHandlers = (io) => {
 
                     .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
                     .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
-                    .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' });
+                    .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' })
+                    .populate({ path: 'round', model: 'Round' })
+
 
                 //
 
@@ -90,7 +92,11 @@ export const setupSocketHandlers = (io) => {
                     path: 'teams',
                 }).populate({
                     path: 'tournament',
+                }).populate({
+                    path: 'round',
+                    model: 'Round'
                 })
+
                     .populate({
                         path: 'playing11.team',  // Populate the team field in playing11
                         model: 'Team' // The reference model is 'Team'
@@ -99,6 +105,7 @@ export const setupSocketHandlers = (io) => {
                         path: 'playing11.players', // Populate the players array in playing11
                         model: 'Player' // The reference model is 'Player'
                     })
+
                     .populate({
                         path: 'innings.nonStriker',
                         model: 'Player'
@@ -873,9 +880,8 @@ export const setupSocketHandlers = (io) => {
                         })
                         .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
                         .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
-                        .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' });
-
-
+                        .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' })
+                        .populate({ path: 'round', model: 'Round' });
 
                     // Emit the updated match data to all clients after successful population
                     io.to(matchId).emit('newBall', populatedMatch);
@@ -903,6 +909,10 @@ export const setupSocketHandlers = (io) => {
                 const match = await Match.findById(matchId)
                     .populate({
                         path: 'teams',
+                    })
+                    .populate({
+                        path: 'round',
+                        model: 'Round'
                     })
                     .populate({
                         path: 'playing11.team',  // Populate the team field in playing11
@@ -1005,6 +1015,7 @@ export const setupSocketHandlers = (io) => {
                             path: 'innings.currentStriker',
                             model: 'Player'
                         })
+                        .populate({ path: 'round', model: 'Round' })
                         .populate({
                             path: 'innings.previousBowler',
                             model: 'Player'
@@ -1042,6 +1053,10 @@ export const setupSocketHandlers = (io) => {
                     .populate('innings.team innings.battingPerformances innings.bowlingPerformances')
                     .populate({
                         path: 'teams',
+                    })
+                    .populate({
+                        path: 'round',
+                        model: 'Round'
                     })
                     .populate({
                         path: 'tournament',
@@ -1119,6 +1134,7 @@ export const setupSocketHandlers = (io) => {
                         .populate({
                             path: 'teams',
                         })
+                        .populate({ path: 'round', model: 'Round' })
                         .populate({
                             path: 'playing11.team',  // Populate the team field in playing11
                             model: 'Team' // The reference model is 'Team'
@@ -1182,6 +1198,10 @@ export const setupSocketHandlers = (io) => {
                         path: 'teams',
                     }).populate({
                         path: 'tournament',
+                    })
+                    .populate({
+                        path: 'round',
+                        model: 'Round'
                     })
                     .populate({
                         path: 'playing11.team',
@@ -1255,7 +1275,8 @@ export const setupSocketHandlers = (io) => {
                         })
                         .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
                         .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
-                        .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' });
+                        .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' })
+                        .populate({ path: 'round', model: 'Round' });
 
 
                     console.log("Populated match:", populatedMatch); // Check if match is populated

@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid';  // Import nanoid to generate random strings
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { Team } from "../models/team.model.js";
 import Match from "../models/match.model.js";
+import { Club } from "../models/club.model.js";
 
 const createPlayer = asyncHandler(async (req, res) => {
     console.log(req.body);
@@ -94,6 +95,70 @@ const getAllPlayers = asyncHandler(async (req, res) => {
         throw new ApiError(500, "An error occurred while fetching players");
     }
 });
+
+const getRandomPlayers = asyncHandler(async (req, res) => {
+    try {
+        // Fetch players with populated fields
+        const players = await Player.find()
+            .select("-__v")
+            .populate({
+                path: 'currentTeam',
+                select: 'teamName teamLogo', // Populate teamName and teamLogo for the current team
+            })
+            .populate({
+                path: 'teams',
+                select: 'teamName teamLogo', // Populate teamName and teamLogo for past teams
+            })
+            .populate({
+                path: 'associatedClub',
+                select: 'clubName clubLogo', // Populate clubName and clubLogo for the associated club
+            });
+
+        // Filter out players who have an empty profilePicture
+        const filteredPlayers = players.filter(player => player.profilePicture && player.profilePicture.trim() !== "");
+
+        // Shuffle players array to randomize selection
+        const shuffledPlayers = filteredPlayers.sort(() => 0.5 - Math.random());
+
+        // Group players by their current team and select players from different teams
+        const playersByTeam = {};
+        shuffledPlayers.forEach(player => {
+            const teamId = player.currentTeam?._id;
+            if (teamId && (!playersByTeam[teamId] || playersByTeam[teamId].length < 2)) { // Limit to a few players per team
+                playersByTeam[teamId] = playersByTeam[teamId] || [];
+                playersByTeam[teamId].push(player);
+            }
+        });
+
+        // Flatten the grouped players array
+        let uniqueTeamPlayers = Object.values(playersByTeam).flat();
+
+        // If we have fewer than 12 players, add additional players to meet the count
+        if (uniqueTeamPlayers.length < 12) {
+            const additionalPlayers = shuffledPlayers.filter(
+                player => !uniqueTeamPlayers.includes(player)
+            ).slice(0, 12 - uniqueTeamPlayers.length);
+            uniqueTeamPlayers = uniqueTeamPlayers.concat(additionalPlayers);
+        }
+
+        // Limit to exactly 12 players
+        uniqueTeamPlayers = uniqueTeamPlayers.slice(0, 9);
+
+        if (uniqueTeamPlayers.length === 0) {
+            throw new ApiError(404, "No players found");
+        }
+
+        // Respond with a success message and the list of 12 players
+        return res.status(200).json(
+            new ApiResponse(200, uniqueTeamPlayers, "Players fetched successfully")
+        );
+
+    } catch (error) {
+        console.error("Error fetching players:", error.message);
+        throw new ApiError(500, "An error occurred while fetching players");
+    }
+});
+
 const updatePlayer = asyncHandler(async (req, res) => {
     try {
         const { id } = req.params;
@@ -212,6 +277,118 @@ const deletePlayer = asyncHandler(async (req, res) => {
         );
     } catch (error) {
         throw new ApiError(500, "An error occurred while deleting the player");
+    }
+});
+
+const releasePlayerFromClub = asyncHandler(async (req, res) => {
+    try {
+        const { id } = req.params; // Player ID
+        console.log("Player ID", id);
+
+        // Find the player by ID
+        const player = await Player.findById(id);
+        if (!player) {
+            return res.status(404).json(new ApiResponse(404, null, "Player not found"));
+        }
+
+        const clubId = player.associatedClub;
+        if (!clubId) {
+            return res.status(400).json(new ApiResponse(400, null, "Player is not associated with any club"));
+        }
+
+        // Check if the player is part of any team in the associated club
+        const teams = await Team.find({
+            associatedClub: clubId, // Match the team’s associated club to the player’s club
+            players: { $in: [id] }  // Check if the player's ID is in the players array
+        });
+
+        console.log("teams", teams);
+
+        if (teams.length > 0) {
+            return res.status(500).json(new ApiError(400, null, "Player is currently part of a team in the club and cannot be released"));
+        }
+
+        // Release the player from the club by setting associatedClub to null
+        player.associatedClub = null;
+        await player.save();
+
+        return res.status(200).json(
+            new ApiResponse(200, null, "Player released from club successfully")
+        );
+    } catch (error) {
+        throw new ApiError(500, error.message || "An error occurred while releasing the player from the club");
+    }
+});
+const addPlayerToClub = asyncHandler(async (req, res) => {
+    try {
+        const { playerId, clubId } = req.params;
+        console.log("req.params", req.params);
+
+        // Find the player by ID
+        const player = await Player.findById(playerId);
+        if (!player) {
+            return res.status(404).json(new ApiResponse(404, null, "Player not found"));
+        }
+
+        // Find the club by ID
+        const club = await Club.findById(clubId);
+        if (!club) {
+            return res.status(404).json(new ApiResponse(404, null, "Club not found"));
+        }
+
+        // Check if player is already associated with a club
+        if (player.associatedClub) {
+            return res.status(400).json(new ApiResponse(400, null, "Player is already associated with a club"));
+        }
+
+        // Add player to the club
+        player.associatedClub = clubId;
+        player.requestedClubs = [];  // Clear the requestedClubs array
+
+        await player.save();
+
+        return res.status(200).json(
+            new ApiResponse(200, { player, club }, "Player added to club successfully")
+        );
+    } catch (error) {
+        throw new ApiError(500, error.message || "An error occurred while adding the player to the club");
+    }
+});
+const addPlayerToClubReq = asyncHandler(async (req, res) => {
+    try {
+        const { playerId, clubId } = req.params;
+
+        // Find the player by ID
+        const player = await Player.findById(playerId);
+        if (!player) {
+            return res.status(404).json(new ApiResponse(404, null, "Player not found"));
+        }
+
+        // Find the club by ID for validation
+        const club = await Club.findById(clubId);
+        if (!club) {
+            return res.status(404).json(new ApiResponse(404, null, "Club not found"));
+        }
+
+        // Check if the player is already associated with a club
+        if (player.associatedClub) {
+            return res.status(400).json(new ApiResponse(400, null, "Player is already associated with a club"));
+        }
+
+        // Check if the club is already in the requestedClubs array
+        if (player.requestedClubs.includes(clubId)) {
+            return res.status(400).json(new ApiResponse(400, null, "Club has already requested to add this player"));
+        }
+
+        // Add the club to the requestedClubs array
+        player.requestedClubs.push(clubId);
+        await player.save();
+
+        return res.status(200).json(
+            new ApiResponse(200, { player, club }, "Club request to add player has been submitted successfully")
+        );
+    } catch (error) {
+        throw new ApiError(500, error.message || "An error occurred while submitting the club request");
     }
 });
 const getAvailablePlayersForTeam = asyncHandler(async (req, res) => {
@@ -383,6 +560,29 @@ const isBetterBB = (currentBB, bestBB) => {
     return currentWickets > bestWickets || (currentWickets === bestWickets && currentRuns < bestRuns);
 };
 
+const getInactivePlayers = asyncHandler(async (req, res) => {
+    try {
+        // Find all players where associatedClub is an empty string
+        console.log("Hello");
+
+        const inactivePlayers = await Player.find({ associatedClub: null })
+            .select('playerName city phone email profilePicture DOB status jersyNo role battingStyle bowlingStyle CNIC requestedClubs')
+            .populate({
+                path: 'requestedClubs',
+                select: 'clubName', // Only populate the 'clubName' field in requestedClubs
+            });
+
+
+
+        return res.status(200).json(
+            new ApiResponse(200, inactivePlayers, "Inactive players retrieved successfully")
+        );
+    } catch (error) {
+        throw new ApiError(500, error.message || "Server error");
+    }
+});
+
+
 
 
 
@@ -395,10 +595,15 @@ const isBetterBB = (currentBB, bestBB) => {
 export {
     getAvailablePlayersForTeam,
     createPlayer,
+    getRandomPlayers,
     updatePlayer,
     deletePlayer,
     getAllPlayers,
     updatePlayerStats,
-    getPlayerById
+    getPlayerById,
+    getInactivePlayers,
+    releasePlayerFromClub,
+    addPlayerToClub,
+    addPlayerToClubReq
 
 }

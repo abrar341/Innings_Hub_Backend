@@ -76,6 +76,10 @@ const playerSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'Club',
     },
+    requestedClubs: [{
+        type: Schema.Types.ObjectId,
+        ref: 'Club',
+    }],
     stats: {                 //stats of player
         matches: { type: Number, default: 0 },
         battingInnings: { type: Number, default: 0 },

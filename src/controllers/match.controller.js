@@ -814,10 +814,11 @@ const initializePlayers = asyncHandler(async (req, res) => {
         // Find the match by ID
         const match = await Match.findById(matchId).populate('teams')
             .populate({
+                path: 'teams',
+            })
+            .populate({
                 path: 'playing11.team',  // Populate the team field in playing11
                 model: 'Team' // The reference model is 'Team'
-            }).populate({
-                path: 'tournament',
             })
             .populate({
                 path: 'playing11.players', // Populate the players array in playing11
@@ -826,6 +827,10 @@ const initializePlayers = asyncHandler(async (req, res) => {
             .populate({
                 path: 'innings.nonStriker',
                 model: 'Player'
+            })
+            .populate({
+                path: 'toss',
+                model: 'Team'
             })
             .populate({
                 path: 'innings.currentBowler',
@@ -842,7 +847,15 @@ const initializePlayers = asyncHandler(async (req, res) => {
             .populate({
                 path: 'innings.team',
                 model: 'Team'
-            });
+            })
+            .populate({
+                path: 'tournament',
+                model: 'Tournament'
+            })
+
+            .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
+            .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
+            .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' });
         if (!match) {
             throw new ApiError(404, 'Match not found');
         }
@@ -942,20 +955,16 @@ const getAllMatches = asyncHandler(async (req, res) => {
     try {
         // Find all matches and populate relevant fields
         const matches = await Match.find()
-            .populate('innings.team innings.battingPerformances innings.bowlingPerformances').populate({
-                path: 'teams',
-            }).populate({
-                path: 'teams',
-            }).populate({
-                path: 'tournament',
+            .populate('innings.team innings.battingPerformances innings.bowlingPerformances')
+            .populate('teams')
+            .populate('tournament')
+            .populate({
+                path: 'playing11.team',
+                model: 'Team'
             })
             .populate({
-                path: 'playing11.team',  // Populate the team field in playing11
-                model: 'Team' // The reference model is 'Team'
-            })
-            .populate({
-                path: 'playing11.players', // Populate the players array in playing11
-                model: 'Player' // The reference model is 'Player'
+                path: 'playing11.players',
+                model: 'Player'
             })
             .populate({
                 path: 'innings.nonStriker',
@@ -977,19 +986,144 @@ const getAllMatches = asyncHandler(async (req, res) => {
                 path: 'innings.team',
                 model: 'Team'
             })
-            .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
-            .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
-            .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' })
+            .populate({
+                path: 'innings.battingPerformances.player',
+                model: 'Player'
+            })
+            .populate('innings.bowlingPerformances.player')
+            .populate({
+                path: 'innings.fallOfWickets.batsmanOut',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.battingPerformances.bowler',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.battingPerformances.fielder',
+                model: 'Player'
+            })
+            .populate({
+                path: 'result.winner',
+                model: 'Team'
+            })
+            .populate({
+                path: 'round',
+                model: 'Round'
+            });
+
+        // Sort matches: live matches first, then other matches
+        matches.sort((a, b) => {
+            if (a.status === 'live' && b.status !== 'live') return -1;
+            if (a.status !== 'live' && b.status === 'live') return 1;
+            return 0; // If both are live or both are not live, leave their order unchanged
+        });
+
+        // Respond with a success message and the sorted matches array
+        res.status(200).json(new ApiResponse(200, matches, 'Matches fetched successfully'));
+    } catch (error) {
+        console.error('Error fetching matches:', error.message);
+        throw new ApiError(500, error.message || 'Internal Server Error');
+    }
+});
+
+const getParticularMatches = asyncHandler(async (req, res) => {
+    console.log("Fetching live, scheduled, and recently completed matches");
+
+    try {
+        const currentDate = new Date();
+        console.log("currentDate", currentDate);
+
+        // Step 1: Fetch live matches, sorted by date
+        let liveMatches = await Match.find({ status: 'live' })
+            .sort({ date: 1 })
+            .limit(10)
+            .populate('innings.team innings.battingPerformances innings.bowlingPerformances')
+            .populate({ path: 'teams' })
+            .populate({ path: 'tournament' })
+            .populate({ path: 'playing11.team', model: 'Team' })
+            .populate({ path: 'playing11.players', model: 'Player' })
+            .populate({ path: 'innings.nonStriker', model: 'Player' })
+            .populate({ path: 'innings.currentBowler', model: 'Player' })
+            .populate({ path: 'innings.currentStriker', model: 'Player' })
+            .populate({ path: 'innings.previousBowler', model: 'Player' })
+            .populate({ path: 'innings.team', model: 'Team' })
+            .populate({ path: 'innings.battingPerformances.player', model: 'Player' })
+            .populate('innings.bowlingPerformances.player')
+            .populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
+            .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' })
+            .populate({ path: 'innings.battingPerformances.fielder', model: 'Player' })
             .populate({ path: 'result.winner', model: 'Team' })
             .populate({ path: 'round', model: 'Round' });
 
-        // If no matches are found
-        // if (!matches || matches.length === 0) {
-        //     throw new ApiError(404, 'No matches found');
-        // }
+        // Step 2: Check remaining slots after fetching live matches
+        const remainingLimit = 10 - liveMatches.length;
 
-        // Respond with a success message and the matches
-        res.status(200).json(new ApiResponse(200, matches, 'Matches fetched successfully'));
+        let scheduledMatches = [];
+        let completedMatches = [];
+
+        if (remainingLimit > 0) {
+            // Divide the remaining limit between scheduled and completed matches
+            const scheduledLimit = Math.ceil(remainingLimit / 2);
+            const completedLimit = remainingLimit - scheduledLimit;
+
+            // Step 3: Fetch upcoming scheduled matches
+            scheduledMatches = await Match.find({
+                status: 'scheduled',
+                date: { $gte: currentDate }
+            })
+                .sort({ date: 1 })
+                .limit(scheduledLimit)
+                .populate('innings.team innings.battingPerformances innings.bowlingPerformances')
+                .populate({ path: 'teams' })
+                .populate({ path: 'tournament' })
+                .populate({ path: 'playing11.team', model: 'Team' })
+                .populate({ path: 'playing11.players', model: 'Player' })
+                .populate({ path: 'innings.nonStriker', model: 'Player' })
+                .populate({ path: 'innings.currentBowler', model: 'Player' })
+                .populate({ path: 'innings.currentStriker', model: 'Player' })
+                .populate({ path: 'innings.previousBowler', model: 'Player' })
+                .populate({ path: 'innings.team', model: 'Team' })
+                .populate({ path: 'innings.battingPerformances.player', model: 'Player' })
+                .populate('innings.bowlingPerformances.player')
+                .populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
+                .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' })
+                .populate({ path: 'innings.battingPerformances.fielder', model: 'Player' })
+                .populate({ path: 'result.winner', model: 'Team' })
+                .populate({ path: 'round', model: 'Round' });
+
+            // Step 4: Fetch recently completed matches
+            completedMatches = await Match.find({
+                status: 'completed',
+                date: { $lt: currentDate }
+            })
+                .sort({ date: -1 }) // Sort in reverse order to get recent matches
+                .limit(completedLimit)
+                .populate('innings.team innings.battingPerformances innings.bowlingPerformances')
+                .populate({ path: 'teams' })
+                .populate({ path: 'tournament' })
+                .populate({ path: 'playing11.team', model: 'Team' })
+                .populate({ path: 'playing11.players', model: 'Player' })
+                .populate({ path: 'innings.nonStriker', model: 'Player' })
+                .populate({ path: 'innings.currentBowler', model: 'Player' })
+                .populate({ path: 'innings.currentStriker', model: 'Player' })
+                .populate({ path: 'innings.previousBowler', model: 'Player' })
+                .populate({ path: 'innings.team', model: 'Team' })
+                .populate({ path: 'innings.battingPerformances.player', model: 'Player' })
+                .populate('innings.bowlingPerformances.player')
+                .populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
+                .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' })
+                .populate({ path: 'innings.battingPerformances.fielder', model: 'Player' })
+                .populate({ path: 'result.winner', model: 'Team' })
+                .populate({ path: 'round', model: 'Round' });
+        }
+
+        // Step 5: Combine all matches, prioritizing live matches, then scheduled, then completed
+        const matches = [...liveMatches, ...completedMatches, ...scheduledMatches];
+
+        console.log("matches", matches);
+
+        res.status(200).json(new ApiResponse(200, matches, 'Live, upcoming scheduled, and recent completed matches fetched successfully'));
     } catch (error) {
         console.error('Error fetching matches:', error.message);
         throw new ApiError(500, error.message || 'Internal Server Error');
@@ -1131,5 +1265,5 @@ const deleteMatchesByRound = asyncHandler(async (req, res) => {
 
 
 export {
-    createMatch, createPost, getPostsByMatchId, getMatchesByTeamId, getMatchesByTournamentId, getMatchById, startMatch, initializePlayers, getAllMatches, scheduleMatches, deleteMatchesByRound
+    createMatch, createPost, getPostsByMatchId, getMatchesByTeamId, getMatchesByTournamentId, getMatchById, startMatch, initializePlayers, getAllMatches, scheduleMatches, deleteMatchesByRound, getParticularMatches
 }
