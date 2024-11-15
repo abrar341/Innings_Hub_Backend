@@ -7,6 +7,7 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { Team } from "../models/team.model.js";
 import Match from "../models/match.model.js";
 import { Club } from "../models/club.model.js";
+import { Notification } from "../models/notification.model.js";
 
 const createPlayer = asyncHandler(async (req, res) => {
     console.log(req.body);
@@ -322,7 +323,6 @@ const releasePlayerFromClub = asyncHandler(async (req, res) => {
 const addPlayerToClub = asyncHandler(async (req, res) => {
     try {
         const { playerId, clubId } = req.params;
-        console.log("req.params", req.params);
 
         // Find the player by ID
         const player = await Player.findById(playerId);
@@ -330,8 +330,8 @@ const addPlayerToClub = asyncHandler(async (req, res) => {
             return res.status(404).json(new ApiResponse(404, null, "Player not found"));
         }
 
-        // Find the club by ID
-        const club = await Club.findById(clubId);
+        // Find the club by ID and populate the manager field
+        const club = await Club.findById(clubId).populate('manager'); // Assume 'manager' references the User model
         if (!club) {
             return res.status(404).json(new ApiResponse(404, null, "Club not found"));
         }
@@ -344,8 +344,26 @@ const addPlayerToClub = asyncHandler(async (req, res) => {
         // Add player to the club
         player.associatedClub = clubId;
         player.requestedClubs = [];  // Clear the requestedClubs array
-
         await player.save();
+
+        // Notification details
+        const adminUserId = "66e5e61a78e6dd01a8560b47"; // Admin user ID as the sender
+        const managerId = club.manager._id; // Club manager as the recipient
+
+        // Create a notification (optional: save this to a notifications collection if needed)
+        // Save the notification to the database
+        const notification = await Notification.create({
+            type: "player_added",
+            status: "unread",
+            senderId: adminUserId,
+            receiverId: managerId,
+            message: `${player.playerName} has been successfully added to your club, ${club.clubName}.`,
+            redirectUrl: `/club-manager/dashboard/players`, // Include redirect URL in the emitted notification
+            isRead: false,
+        });
+        // Emit the notification in real-time via Socket.IO
+        global.io.to(managerId.toString()).emit('notification', notification);
+
 
         return res.status(200).json(
             new ApiResponse(200, { player, club }, "Player added to club successfully")
@@ -364,11 +382,14 @@ const addPlayerToClubReq = asyncHandler(async (req, res) => {
             return res.status(404).json(new ApiResponse(404, null, "Player not found"));
         }
 
-        // Find the club by ID for validation
-        const club = await Club.findById(clubId);
+        // Find the club by ID and populate manager details
+        const club = await Club.findById(clubId).populate('manager');
         if (!club) {
             return res.status(404).json(new ApiResponse(404, null, "Club not found"));
         }
+
+        // Get the manager's user ID as the senderId
+        const senderId = club.manager._id;
 
         // Check if the player is already associated with a club
         if (player.associatedClub) {
@@ -383,6 +404,32 @@ const addPlayerToClubReq = asyncHandler(async (req, res) => {
         // Add the club to the requestedClubs array
         player.requestedClubs.push(clubId);
         await player.save();
+
+        // Create a notification for the admin
+        const adminUserId = "66e5e61a78e6dd01a8560b47"; // Replace with actual admin ID
+        const notification = new Notification({
+            type: "player_request",
+            status: "pending",
+            senderId: senderId,
+            receiverId: adminUserId,
+            message: `${club.clubName} has requested to add ${player.playerName} to their club.`,
+            redirectUrl: `/admin/players`, // Add this for navigation
+            isRead: false
+        });
+
+        await notification.save();
+
+        // Emit the notification in real-time via Socket.IO to the admin’s room
+        global.io.to(adminUserId).emit('notification', {
+            type: "player_request",
+            status: "pending",
+            senderId: senderId,
+            receiverId: adminUserId,
+            message: `${club.clubName} has requested to add ${player.playerName} to their club.`,
+            redirectUrl: `/admin/players`, // Include redirect URL in the emitted notification
+            timestamp: notification.timestamp,
+            isRead: false
+        });
 
         return res.status(200).json(
             new ApiResponse(200, { player, club }, "Club request to add player has been submitted successfully")
@@ -559,7 +606,6 @@ const isBetterBB = (currentBB, bestBB) => {
     // Higher wickets or, in case of a tie, fewer runs is better
     return currentWickets > bestWickets || (currentWickets === bestWickets && currentRuns < bestRuns);
 };
-
 const getInactivePlayers = asyncHandler(async (req, res) => {
     try {
         // Find all players where associatedClub is an empty string
@@ -582,16 +628,6 @@ const getInactivePlayers = asyncHandler(async (req, res) => {
     }
 });
 
-
-
-
-
-
-
-
-
-
-
 export {
     getAvailablePlayersForTeam,
     createPlayer,
@@ -605,5 +641,4 @@ export {
     releasePlayerFromClub,
     addPlayerToClub,
     addPlayerToClubReq
-
 }

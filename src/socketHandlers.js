@@ -1,15 +1,48 @@
 
 import Match from "./models/match.model.js";
 import mongoose from "mongoose";
+import { Notification } from "./models/notification.model.js";
+async function getNotificationsForUser(userId) {
+    console.log("userId", userId);
 
+    // Fetch notifications from the database where `receiverId` is `userId`
+    return await Notification.find({ receiverId: userId });
+}
 export const setupSocketHandlers = (io) => {
     io.on('connection', (socket) => {
         console.log('A user connected');
+
+        const userRole = socket.handshake.query.role; // Assuming the role is passed during connection
+        const userId = socket.handshake.query.userId;
+        console.log("userId", userId);
+
+
+        if (userRole === 'admin') {
+            socket.join(userId); // Admin joins a room named after their user ID
+            console.log(`Admin connected and joined room: ${userId}`);
+            // Fetch and send notifications upon connection
+            getNotificationsForUser(userId).then((notifications) => {
+                console.log("notifications", notifications);
+
+                io.to(userId).emit("notifications", notifications);
+            });
+        } else if (userRole === 'club-manager') {
+            socket.join(userId); // Each club manager joins a room named by their userId
+            console.log(`Club Manager connected: ${userId}`);
+            // Fetch and send notifications upon connection
+            getNotificationsForUser(userId).then((notifications) => {
+                console.log("notifications", notifications);
+
+                io.to(userId).emit("notifications", notifications);
+            });
+        }
+
+
         // Handling joining a specific match room
         socket.on('joinMatch', async (matchId) => {
             try {
                 console.log(`User requested to join match: ${matchId}`);
-
+                // Notify all admins about the new user joining a match room
                 // Fetch the full match details including populated fields (teams and playing11)
                 const match = await Match.findById(matchId)
                     .populate({

@@ -185,6 +185,7 @@ const getConcludedTournaments = asyncHandler(async (req, res) => {
         new ApiResponse(200, tournaments, "Concluded tournaments fetched successfully")
     );
 });
+//admin add teams to tournament
 const addTeamsToTournaments = asyncHandler(async (req, res) => {
     const { tournamentId, teamIds } = req.body;
     // console.log(req.body);
@@ -236,6 +237,7 @@ const addTeamsToTournaments = asyncHandler(async (req, res) => {
         new ApiResponse(201, { tournament, squads: createdSquads }, "Teams added to tournament and squads created successfully")
     );
 });
+//admin remove team from tournament
 const removeTeamFromTournament = asyncHandler(async (req, res) => {
     const { tournamentId, squadId } = req.body;
     // console.log(squadId);
@@ -371,6 +373,7 @@ const getAvailablePlayersForTournament = asyncHandler(async (req, res) => {
     // Return the available players for the team in the tournament
     return res.status(200).json(new ApiResponse(200, availablePlayers, "Available players for the team in the tournament retrieved successfully"));
 });
+//admin remove player from squad
 const removePlayerFromSquad = asyncHandler(async (req, res) => {
     const { squadId, playerId } = req.body.playerId;
     console.log(squadId, playerId);
@@ -455,8 +458,7 @@ const getSquadPlayers = asyncHandler(async (req, res) => {
         throw new ApiError(500, error.message || 'Internal Server Error');
     }
 });
-
-
+//club manager add team with player to tournament as squad
 const RegisterTeamsToTournament = asyncHandler(async (req, res) => {
     const { tournamentId, teams } = req.body;
     // Validate required fields
@@ -501,7 +503,6 @@ const RegisterTeamsToTournament = asyncHandler(async (req, res) => {
             throw new ApiError(500, `Failed to create squad for team ${teamId}: ${error.message}`);
         }
     }
-
     // Save the updated tournament with the newly added squads
     await tournament.save();
 

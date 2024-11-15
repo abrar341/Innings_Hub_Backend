@@ -20,6 +20,7 @@ import teamRouter from './routes/team.routes.js'
 import playerRouter from './routes/player.routes.js'
 import clubRouter from './routes/club.routes.js'
 import matchRouter from './routes/match.routes.js'
+import notificationRouter from "./routes/notification.routes.js"; // Adjust the path as necessary
 import { verifyJWT } from "./middlewares/auth.middleware.js"
 
 // app.use("/api/v1/", adminRouter)
@@ -29,6 +30,7 @@ app.use("/api/player", playerRouter)
 app.use("/api/team", teamRouter)
 app.use("/api/club", clubRouter)
 app.use("/api/match", matchRouter)
+app.use("/api/notifications", notificationRouter)
 
 app.get('/', (req, res) => {
     res.send("hello world")

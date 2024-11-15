@@ -8,7 +8,7 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { User } from "../models/user.model.js";
 import { Player } from "../models/player.model.js";
 import { Team } from "../models/team.model.js";
-
+import { Notification } from "../models/notification.model.js";
 
 const createClub = asyncHandler(async (req, res) => {
     try {
@@ -23,13 +23,10 @@ const createClub = asyncHandler(async (req, res) => {
             review // New field to check if it's a resubmission
         } = req.body;
 
-        // const review = false;
         console.log("req.body.review", review);
 
-
         // Find user by managerEmail
-        const managerUser = await User.findOne({ email: managerEmail })
-            .select("-password -refreshToken");
+        const managerUser = await User.findOne({ email: managerEmail }).select("-password -refreshToken");
         if (!managerUser) {
             throw new ApiError(404, "Manager not found with the provided email");
         }
@@ -50,7 +47,7 @@ const createClub = asyncHandler(async (req, res) => {
             yearEstablished: yearEstablished?.trim(),
             socialLink: socialLink?.trim(),
             registrationStatus: 'pending',
-            manager: managerUser._id // Set manager reference to the found user's ID
+            manager: managerUser._id
         };
 
         let club;
@@ -79,16 +76,47 @@ const createClub = asyncHandler(async (req, res) => {
         managerUser.phone = managerPhone;
         await managerUser.save();
 
+        // Create a notification for the admin
+        const adminUserId = "66e5e61a78e6dd01a8560b47"; // Replace with the actual admin ID
+        const notificationMessage =
+            review === 'true'
+                ? `${club.clubName} has resubmitted their club details for approval by ${managerUser.name}.`
+                : `${club.clubName} has registered a new club for approval by ${managerUser.name}.`;
+
+        const notification = new Notification({
+            type: "club_registration",
+            status: "pending",
+            senderId: managerUser._id,
+            receiverId: adminUserId,
+            message: notificationMessage,
+            redirectUrl: "/admin/clubs", // URL for admin to navigate
+            isRead: false
+        });
+
+        await notification.save();
+
+        // Emit the notification in real-time via Socket.IO to the admin’s room
+        global.io.to(adminUserId).emit('notification', {
+            type: "club_registration",
+            status: "pending",
+            senderId: managerUser._id,
+            receiverId: adminUserId,
+            message: notificationMessage,
+            redirectUrl: "/admin/clubs",
+            timestamp: notification.timestamp,
+            isRead: false
+        });
+
         // Populate the club details in the user object, including the manager details within the club
         const user = await User.findById(managerUser._id)
             .populate({
                 path: 'club',
                 populate: {
                     path: 'manager',
-                    select: '-password -refreshToken' // Select fields to exclude sensitive info from manager
+                    select: '-password -refreshToken'
                 }
             })
-            .select('-password -refreshToken'); // Exclude sensitive fields from the user object as well
+            .select('-password -refreshToken');
 
         // Fetch the created or updated club with selected fields
         const savedClub = await Club.findById(club._id);
@@ -99,6 +127,8 @@ const createClub = asyncHandler(async (req, res) => {
         return res.status(201).json(
             new ApiResponse(201, { user, savedClub }, message)
         );
+        console.log("savedClub", savedClub);
+
     } catch (error) {
         throw new ApiError(500, error);
     }
@@ -182,14 +212,41 @@ const getClubs = asyncHandler(async (req, res) => {
         throw new ApiError(500, error.message || "Server error");
     }
 });
+const getClubDetails = asyncHandler(async (req, res) => {
+    try {
+        const { managerId } = req.params; // Manager ID from request params
+        console.log("req.params", req.params);
+
+        // Find the manager user by ID and populate their club
+        const user = await User.findById(managerId)
+            .populate({
+                path: 'club',
+                populate: {
+                    path: 'manager',
+                    select: '-password -refreshToken', // Exclude sensitive fields
+                },
+            })
+            .select('-password -refreshToken'); // Exclude sensitive fields from the user object
+
+        if (!user) {
+            throw new ApiError(404, "Manager not found");
+        }
+
+        return res.status(200).json(
+            new ApiResponse(200, user, "Manager and club details retrieved successfully")
+        );
+    } catch (error) {
+        throw new ApiError(500, error.message || "Server error");
+    }
+});
 const approveClub = asyncHandler(async (req, res) => {
     try {
         const { clubId } = req.body;
-        // console.log("clubId", clubId);
-
 
         // Find the club by its ID
-        const club = await Club.findById(clubId);
+        const club = await Club.findById(clubId).populate('manager'); // Populate manager details
+        console.log("club.manager._id", club.manager._id);
+
         if (!club) {
             throw new ApiError(404, "Club not found");
         }
@@ -202,6 +259,39 @@ const approveClub = asyncHandler(async (req, res) => {
         );
         await club.save();
 
+        // Create a notification for the club manager
+        const adminUserId = "66e5e61a78e6dd01a8560b47";
+        const notificationMessage = `${club.clubName} has been approved by the admin. Congratulations!`;
+        const notification = new Notification({
+            type: "club_approval",
+            status: "approved",
+            senderId: adminUserId, // Assuming req.user contains the admin's ID
+            receiverId: club.manager._id, // Club manager ID
+            message: notificationMessage,
+            redirectUrl: `/club-manager/dashboard`, // Redirect to the club details page
+            isRead: false,
+        });
+
+        await notification.save();
+        console.log("club.manager._id", club.manager._id);
+
+        // Emit the notification in real-time via Socket.IO to the manager's room
+        global.io.to(club.manager._id.toString()).emit('notification', {
+            type: "club_approval",
+            status: "approved",
+            senderId: adminUserId,
+            receiverId: club.manager._id,
+            message: notificationMessage,
+            redirectUrl: `/club-manager/dashboard`,
+            timestamp: notification.timestamp,
+            isRead: false,
+        });
+
+        // Emit a second event for real-time updates (optional use case)
+        global.io.to(club.manager._id.toString()).emit('update', {
+            club
+        });
+
         return res.status(200).json(
             new ApiResponse(200, club, "Club approved successfully")
         );
@@ -212,11 +302,9 @@ const approveClub = asyncHandler(async (req, res) => {
 const rejectClub = asyncHandler(async (req, res) => {
     try {
         const { clubId, reason } = req.body;
-        // console.log("clubId", clubId);
-        // console.log("reason", reason);
 
         // Find the club by its ID
-        const club = await Club.findById(clubId);
+        const club = await Club.findById(clubId).populate('manager'); // Populate manager details
         if (!club) {
             throw new ApiError(404, "Club not found");
         }
@@ -225,6 +313,38 @@ const rejectClub = asyncHandler(async (req, res) => {
         club.registrationStatus = 'rejected';
         club.rejectionReason = reason; // Assuming you have a field for rejection reason
         await club.save();
+
+        // Create a notification for the club manager
+        const adminUserId = "66e5e61a78e6dd01a8560b47";
+        const notificationMessage = `${club.clubName} has been rejected by the admin. Reason: ${reason}`;
+        const notification = new Notification({
+            type: "club_rejection",
+            status: "rejected",
+            senderId: adminUserId, // Admin's ID
+            receiverId: club.manager._id, // Club manager ID
+            message: notificationMessage,
+            redirectUrl: `/club-manager/dashboard`, // Redirect to the club manager's dashboard
+            isRead: false,
+        });
+
+        await notification.save();
+
+        // Emit the notification in real-time via Socket.IO to the manager's room
+        global.io.to(club.manager._id.toString()).emit('notification', {
+            type: "club_rejection",
+            status: "rejected",
+            senderId: adminUserId,
+            receiverId: club.manager._id,
+            message: notificationMessage,
+            redirectUrl: `/club-manager/dashboard`,
+            timestamp: notification.timestamp,
+            isRead: false,
+        });
+
+        // Emit a second event for real-time updates (optional use case)
+        global.io.to(club.manager._id.toString()).emit('update', {
+            club
+        });
 
         return res.status(200).json(
             new ApiResponse(200, club, "Club rejected successfully")
@@ -241,4 +361,5 @@ export {
     getClubs,
     approveClub,
     rejectClub,
+    getClubDetails
 }

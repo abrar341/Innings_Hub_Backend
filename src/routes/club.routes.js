@@ -1,7 +1,7 @@
 
 import { Router } from "express";
 import { upload } from "../middlewares/multer.middleware.js";
-import { createClub, getClubs, getPlayersByClub, approveClub, rejectClub, getTeamsByClub } from "../controllers/club.controller.js";
+import { createClub, getClubs, getPlayersByClub, approveClub, rejectClub, getTeamsByClub, getClubDetails } from "../controllers/club.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const router = Router()
@@ -17,6 +17,7 @@ router.route("/getPlayersByClub/:id").get(getPlayersByClub)
 router.route("/getTeamsByClub/:id").get(getTeamsByClub)
 
 router.route("/getClubs").get(getClubs)
+router.route("/getClubDetails/:managerId/club").get(getClubDetails)
 router.route("/approveClub").post(approveClub)
 router.route("/rejectClub").post(rejectClub)
 

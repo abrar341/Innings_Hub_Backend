@@ -4,7 +4,7 @@ import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Squad } from "../models/squad.model.js";
 
-
+//admin add player to squad 
 const addPlayerToSquad = asyncHandler(async (req, res) => {
     const { squadId, playerIds } = req.body;
 
@@ -38,7 +38,6 @@ const addPlayerToSquad = asyncHandler(async (req, res) => {
         new ApiResponse(200, squad, "Players added to the squad successfully")
     );
 });
-
 export const getAllSquads = asyncHandler(async (req, res) => {
     // Fetch all squads from the database
     const squads = await Squad.find().populate('team tournament players');
@@ -52,12 +51,10 @@ export const getAllSquads = asyncHandler(async (req, res) => {
         new ApiResponse(200, squads, "Squads retrieved successfully")
     );
 });
-
+//admin approved or remove squad
 const approveSquadById = asyncHandler(async (req, res) => {
     const { squadId } = req.params;
     console.log(req.params);
-
-
     // Validate that the squad ID is provided
     if (!squadId) {
         throw new ApiError(400, "Squad ID is required");
@@ -74,7 +71,6 @@ const approveSquadById = asyncHandler(async (req, res) => {
     if (squad.status !== 'pending') {
         throw new ApiError(400, "Squad is not in pending status");
     }
-
     // Update the squad status to approved
     squad.status = 'approved';
     await squad.save(); // Save the updated squad
@@ -84,6 +80,5 @@ const approveSquadById = asyncHandler(async (req, res) => {
         new ApiResponse(200, squad, "Squad approved successfully")
     );
 });
-
 
 export { addPlayerToSquad, approveSquadById };

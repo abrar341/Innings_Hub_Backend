@@ -7,6 +7,7 @@ const notificationSchema = new Schema({
     status: { type: String, default: 'pending' }, // "pending", "approved", "rejected"
     senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     receiverId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    redirectUrl: String, // Add this for navigation
     timestamp: { type: Date, default: Date.now },
     message: { type: String },
     isRead: { type: Boolean, default: false }
