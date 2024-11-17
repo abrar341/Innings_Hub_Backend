@@ -5,6 +5,7 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import asyncHandler from 'express-async-handler';
 import { sendForgotPasswordEmail, sendScorerWelcomeEmail, sendVerificationEmail, sendWelcomeEmail, } from '../mailtrap/mailer.js'
+import { sendSMS } from "../utils/twilioService.js";
 
 
 const registerUser = asyncHandler(async (req, res) => {
@@ -233,7 +234,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
 
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
-
+    await sendSMS()
     if (!email || !password) {
         throw new ApiError(401, 'Email and Password required');
     }

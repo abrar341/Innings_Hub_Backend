@@ -2,20 +2,80 @@
 import Match from "./models/match.model.js";
 import mongoose from "mongoose";
 import { Notification } from "./models/notification.model.js";
+import { updateTeamStats } from "./utils/updateTeamStats.js";
+import { updatePlayerStats } from "./utils/updatePlayerStats.js";
+
+
 async function getNotificationsForUser(userId) {
     console.log("userId", userId);
 
     // Fetch notifications from the database where `receiverId` is `userId`
     return await Notification.find({ receiverId: userId });
 }
+
+
+
+// Helper function to fetch matches
+const fetchMatches = async () => {
+    const currentDate = new Date();
+
+    try {
+        // Fetch one live match
+        const liveMatch = await Match.findOne({ status: 'live' })
+            .sort({ date: 1 })
+            .populate('teams tournament')
+            .exec();
+
+        // Fetch one completed match
+        const completedMatch = await Match.findOne({ status: 'completed', date: { $lt: currentDate } })
+            .sort({ date: -1 }) // Most recent completed match
+            .populate('teams tournament')
+            .exec();
+
+        return { liveMatch, completedMatch };
+    } catch (error) {
+        console.error('Error fetching matches:', error.message);
+        throw new Error('Error fetching matches');
+    }
+};
+
 export const setupSocketHandlers = (io) => {
-    io.on('connection', (socket) => {
+    io.on('connection', async (socket) => {
+
+
         console.log('A user connected');
+
+
+        try {
+            // Fetch the matches on connection
+            const { liveMatch, completedMatch } = await fetchMatches();
+
+            // Emit the matches to the connected user
+            socket.emit('carouselData', { liveMatch, completedMatch });
+
+            // Periodically check for live match updates (optional)
+            const interval = setInterval(async () => {
+                const updatedLiveMatch = await Match.findOne({ status: 'live' })
+                    .sort({ date: 1 })
+                    .populate('teams tournament')
+                    .exec();
+
+                if (!updatedLiveMatch || !liveMatch || updatedLiveMatch.id !== liveMatch.id) {
+                    socket.emit('liveMatchUpdated', updatedLiveMatch);
+                }
+            }, 10000); // Check every 10 seconds
+
+            socket.on('disconnect', () => {
+                console.log('A user disconnected:', socket.id);
+                clearInterval(interval);
+            });
+        } catch (error) {
+            console.error('Error during connection handling:', error.message);
+            socket.emit('error', { message: 'Failed to fetch match data' });
+        }
 
         const userRole = socket.handshake.query.role; // Assuming the role is passed during connection
         const userId = socket.handshake.query.userId;
-        console.log("userId", userId);
-
 
         if (userRole === 'admin') {
             socket.join(userId); // Admin joins a room named after their user ID
@@ -36,7 +96,6 @@ export const setupSocketHandlers = (io) => {
                 io.to(userId).emit("notifications", notifications);
             });
         }
-
 
         // Handling joining a specific match room
         socket.on('joinMatch', async (matchId) => {
@@ -123,12 +182,14 @@ export const setupSocketHandlers = (io) => {
                     path: 'teams',
                 }).populate({
                     path: 'teams',
-                }).populate({
-                    path: 'tournament',
-                }).populate({
-                    path: 'round',
-                    model: 'Round'
                 })
+                    .populate({
+                        path: 'tournament',
+                        model: 'Tournament'
+                    }).populate({
+                        path: 'round',
+                        model: 'Round'
+                    })
 
                     .populate({
                         path: 'playing11.team',  // Populate the team field in playing11
@@ -220,6 +281,11 @@ export const setupSocketHandlers = (io) => {
 
                     // Save the match with the updated result
                     await match.save();
+                    // Update team stats after match result
+                    if (match.status === 'completed') {
+                        await updateTeamStats(match._id); // Pass the match ID to update team stats
+                        await updatePlayerStats(match._id)
+                    }
                 };
                 // socket.join(matchId);
                 // console.log(`User joined match room: ${matchId}`);
@@ -882,6 +948,10 @@ export const setupSocketHandlers = (io) => {
                     const populatedMatch = await Match.findById(matchId)
                         .populate({
                             path: 'teams',
+                        })
+                        .populate({
+                            path: 'tournament',
+                            model: 'Tournament'
                         })
                         .populate({
                             path: 'playing11.team',  // Populate the team field in playing11

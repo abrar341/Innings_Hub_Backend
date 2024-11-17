@@ -6,6 +6,10 @@ import { Player } from "../models/player.model.js";
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { Notification } from "../models/notification.model.js";
+import { getAdminUserId } from "../utils/getAdminUserId.js";
+import { Club } from "../models/club.model.js";
+import { Round } from "../models/rounds.model.js";
 
 
 const getAllTournaments = asyncHandler(async (req, res) => {
@@ -14,13 +18,32 @@ const getAllTournaments = asyncHandler(async (req, res) => {
         if (!tournaments || tournaments.length === 0) {
             throw new ApiError(404, "No tournaments found");
         }
+
+        // Map through tournaments to classify each one as started or upcoming
+        const tournamentsWithStatus = await Promise.all(
+            tournaments.map(async (tournament) => {
+                const rounds = await Round.find({ tournament: tournament._id });
+
+                return {
+                    ...tournament.toObject(), // Include tournament details
+                    status: rounds.length > 0 ? "Started" : "Upcoming", // Add status based on rounds
+                    rounds, // Include associated rounds if needed
+                };
+            })
+        );
+
         return res.status(200).json(
-            new ApiResponse(200, tournaments, "Tournaments fetched successfully")
+            new ApiResponse(
+                200,
+                tournamentsWithStatus,
+                "Tournaments fetched successfully"
+            )
         );
     } catch (error) {
         throw new ApiError(500, "An error occurred while fetching tournaments");
     }
 });
+
 const createTournament = asyncHandler(async (req, res) => {
     const {
         season,
@@ -188,7 +211,7 @@ const getConcludedTournaments = asyncHandler(async (req, res) => {
 //admin add teams to tournament
 const addTeamsToTournaments = asyncHandler(async (req, res) => {
     const { tournamentId, teamIds } = req.body;
-    // console.log(req.body);
+
     // Validate required fields
     if (!tournamentId || !teamIds || !Array.isArray(teamIds) || teamIds.length === 0) {
         throw new ApiError(400, "Tournament ID and team IDs are required");
@@ -205,6 +228,7 @@ const addTeamsToTournaments = asyncHandler(async (req, res) => {
 
     // Create squads for each team being added
     const createdSquads = [];
+    const notifications = [];
     for (const teamId of teamIds) {
         try {
             const squad = new Squad({
@@ -217,31 +241,72 @@ const addTeamsToTournaments = asyncHandler(async (req, res) => {
 
             // Save each squad to the database
             await squad.save();
-            // console.log("Created squad for team:", teamId);
             createdSquads.push(squad);
 
             // Add squad _id to the tournament's squads array
             tournament.squads.push(squad._id);
+
+            // Fetch the team and its associated club and manager
+            const team = await Team.findById(teamId).populate({
+                path: 'associatedClub',
+                populate: { path: 'manager' }
+            });
+
+            if (team && team.associatedClub && team.associatedClub.manager) {
+                const manager = team.associatedClub.manager;
+                const notificationMessage = `Your team '${team.teamName}' has been successfully added to the tournament '${tournament.name}'.Please contact the administrator for more details...`;
+
+
+                // Create and save the notification
+                const redirectUrl = `/series/${tournamentId}/squads`; // Adjust based on your front-end routes
+
+                const notification = new Notification({
+                    type: 'squad_added',
+                    status: 'approved',
+                    senderId: await getAdminUserId(), // Assuming getAdminUserId fetches the admin ID
+                    receiverId: manager._id,
+                    message: notificationMessage,
+                    redirectUrl,
+                    isRead: false,
+                });
+
+                await notification.save();
+                notifications.push(notification);
+
+                // Emit the notification in real-time via Socket.IO
+                global.io.to(manager._id.toString()).emit('notification', {
+                    _id: notification._id,
+                    type: notification.type,
+                    status: notification.status,
+                    senderId: notification.senderId,
+                    receiverId: notification.receiverId,
+                    message: notification.message,
+                    redirectUrl: notification.redirectUrl,
+                    timestamp: notification.timestamp,
+                    isRead: notification.isRead,
+                });
+            }
         } catch (error) {
-            // console.error(`Failed to create squad for team ${teamId}:`, error);
-            throw new ApiError(500, `Failed to create squad for team ${teamId}`);
+            throw new ApiError(500, `Failed to create squad for team ${teamId}: ${error.message}`);
         }
     }
 
     // Save the updated tournament
     await tournament.save();
-    // console.log("Tournament updated with new squads:", createdSquads);
 
     // Return the success response with the updated tournament and created squads
     return res.status(201).json(
-        new ApiResponse(201, { tournament, squads: createdSquads }, "Teams added to tournament and squads created successfully")
+        new ApiResponse(
+            201,
+            { tournament, squads: createdSquads, notifications },
+            "Teams added to tournament and squads created successfully, notifications sent."
+        )
     );
 });
+
 //admin remove team from tournament
 const removeTeamFromTournament = asyncHandler(async (req, res) => {
     const { tournamentId, squadId } = req.body;
-    // console.log(squadId);
-
 
     // Validate required fields
     if (!tournamentId || !squadId) {
@@ -267,16 +332,74 @@ const removeTeamFromTournament = asyncHandler(async (req, res) => {
     await tournament.save();
 
     // Delete the squad document from the Squad collection
-    const squad = await Squad.findById(squadId);
-    if (!squad) {
-        throw new ApiError(404, 'Squad not found');
+    // Populate the team within the squad to get the associated club
+    const squad = await Squad.findById(squadId).populate({
+        path: 'team',
+        populate: {
+            path: 'associatedClub',
+            populate: {
+                path: 'manager',
+            },
+        },
+    });
+
+    if (!squad || !squad.team || !squad.team.associatedClub || !squad.team.associatedClub.manager) {
+        throw new ApiError(404, 'Associated club or manager not found');
     }
 
+    // Extract the club and manager
+    const club = squad.team.associatedClub;
+    const manager = club.manager;
+
+
+    // Extract necessary details for notification
+    const teamName = squad.team.teamName;
+    const tournamentName = tournament.name;
+
+    // Find the associated club and manager
+    // const club = await Club.findOne({ teams: squad.team._id }).populate('manager');
+    // if (!club || !club.manager) {
+    //     throw new ApiError(404, 'Associated club or manager not found');
+    // }
+
+    // Create the notification message
+    const notificationMessage = `Your team '${teamName}' squad for the tournament '${tournamentName}' has been removed or rejected. Please contact the administrator for more details.`;
+
+    // Create and save the notification
+    const redirectUrl = `/series/${squad.tournament._id}/squads`; // Adjust based on your front-end routes
+
+    const notification = new Notification({
+        type: 'squad_removal',
+        status: 'rejected',
+        senderId: await getAdminUserId(), // Assuming getAdminUserId fetches the admin ID
+        receiverId: manager._id,
+        message: notificationMessage,
+        redirectUrl: redirectUrl, // Dynamic URL to the tournament
+        isRead: false,
+    });
+
+    await notification.save();
+
+    // Emit the notification in real-time via Socket.IO
+    global.io.to(manager._id.toString()).emit('notification', {
+        _id: notification._id,
+        type: 'squad_removal',
+        status: 'rejected',
+        senderId: notification.senderId,
+        receiverId: notification.receiverId,
+        message: notification.message,
+        redirectUrl: notification.redirectUrl,
+        timestamp: notification.timestamp,
+        isRead: false,
+    });
+
+    // Delete the squad document
     await squad.deleteOne();
 
     // Send a success response
     res.status(200).json(new ApiResponse(200, { squadId: squad._id }, 'Team removed from tournament and squad deleted successfully'));
 });
+
 const getAvailableTeamsForTournament = asyncHandler(async (req, res) => {
     const { tournamentId } = req.params;
 
@@ -376,7 +499,8 @@ const getAvailablePlayersForTournament = asyncHandler(async (req, res) => {
 //admin remove player from squad
 const removePlayerFromSquad = asyncHandler(async (req, res) => {
     const { squadId, playerId } = req.body.playerId;
-    console.log(squadId, playerId);
+    console.log("req.body", req.body.playerId);
+
 
     // Validate required fields
     if (!squadId || !playerId) {
@@ -384,7 +508,7 @@ const removePlayerFromSquad = asyncHandler(async (req, res) => {
     }
 
     // Find the squad by squadId
-    const squad = await Squad.findById(squadId);
+    const squad = await Squad.findById(squadId).populate('team tournament');
     if (!squad) {
         throw new ApiError(404, "Squad not found");
     }
@@ -396,17 +520,68 @@ const removePlayerFromSquad = asyncHandler(async (req, res) => {
         throw new ApiError(404, "Player not found in the squad");
     }
 
+    // Fetch the player details for notification
+    const player = await Player.findById(playerId, 'playerName');
+    if (!player) {
+        throw new ApiError(404, "Player not found");
+    }
+
     // Remove the player from the squad's players array
     squad.players.splice(playerIndex, 1);
 
     // Save the updated squad
     await squad.save();
 
+    // Find the associated club and manager
+    const team = await Team.findById(squad.team._id).populate('associatedClub');
+
+    if (!team || !team.associatedClub) {
+        throw new ApiError(404, "Associated club not found");
+    }
+
+    const club = await Club.findById(team.associatedClub._id).populate('manager');
+
+    if (!club || !club.manager) {
+        throw new ApiError(404, "Associated club or manager not found");
+    }
+
+
+    // Create the notification
+    const notificationMessage = `The player '${player.playerName}' has been removed from your squad of '${squad.team.teamName} team' in the tournament '${squad.tournament.name}'.`;
+    const adminUserId = await getAdminUserId();
+    const redirectUrl = `/series/${squad.tournament._id}/squads`; // Adjust based on your front-end routes
+
+    const notification = new Notification({
+        type: "squad_update",
+        status: "completed",
+        senderId: adminUserId, // Admin's ID from authenticated request
+        receiverId: club.manager._id, // Club Manager's ID
+        message: notificationMessage,
+        redirectUrl: redirectUrl, // Dynamic squad URL
+        isRead: false,
+    });
+
+    await notification.save();
+
+    // Emit the notification in real-time via Socket.IO
+    global.io.to(club.manager._id.toString()).emit('notification', {
+        _id: notification._id,
+        type: "squad_update",
+        status: "completed",
+        senderId: adminUserId,
+        receiverId: club.manager._id,
+        message: notificationMessage,
+        redirectUrl: `/squads/${squadId}`,
+        timestamp: notification.timestamp,
+        isRead: false,
+    });
+
     // Return a success response with the updated squad
     return res.status(200).json(
         new ApiResponse(200, squad, "Player removed from the squad successfully")
     );
 });
+
 const getTeamsInTournament = asyncHandler(async (req, res) => {
     const { tournamentId } = req.params;
 
@@ -461,10 +636,12 @@ const getSquadPlayers = asyncHandler(async (req, res) => {
 //club manager add team with player to tournament as squad
 const RegisterTeamsToTournament = asyncHandler(async (req, res) => {
     const { tournamentId, teams } = req.body;
+
     // Validate required fields
     if (!tournamentId || !teams || !Array.isArray(teams) || teams.length === 0) {
         throw new ApiError(400, "Tournament ID and teams (with players) are required");
     }
+
     // Find the tournament by ID
     const tournament = await Tournament.findById(tournamentId);
     if (!tournament) {
@@ -472,6 +649,10 @@ const RegisterTeamsToTournament = asyncHandler(async (req, res) => {
     }
 
     const createdSquads = [];
+    const teamNames = [];
+    let clubName = "";
+    let clubManagerId = "";
+
     for (const team of teams) {
         const { teamId, players } = team;
 
@@ -479,12 +660,26 @@ const RegisterTeamsToTournament = asyncHandler(async (req, res) => {
         const existingSquad = await Squad.findOne({ tournament: tournamentId, team: teamId });
 
         if (existingSquad) {
-            // If the squad exists, skip or handle it accordingly (e.g., ignore or throw an error)
             console.log(`Squad for team ${teamId} already exists for this tournament.`);
             continue;
         }
+
+        // Fetch team details to extract team name and club information
+        const teamDetails = await Team.findById(teamId).populate('associatedClub');
+        if (!teamDetails) {
+            throw new ApiError(404, `Team with ID ${teamId} not found`);
+        }
+
+        // Extract team name and club details
+        teamNames.push(teamDetails.teamName);
+        if (!clubName) {
+            clubName = teamDetails.associatedClub?.clubName || "Unknown Club";
+            clubManagerId = teamDetails.associatedClub?.manager?._id; // Fetch club manager ID
+        }
+
         // Check for duplicate players (removing any duplicates)
         const uniquePlayers = [...new Set(players)];
+
         // Create a new squad with pending status
         try {
             const squad = new Squad({
@@ -492,23 +687,67 @@ const RegisterTeamsToTournament = asyncHandler(async (req, res) => {
                 team: teamId,
                 tournament: tournamentId,
                 players: uniquePlayers,
-                status: 'pending' // Set the squad status to pending
+                status: 'pending', // Set the squad status to pending
             });
+
             // Save the squad to the database
             await squad.save();
             createdSquads.push(squad);
+
             // Add squad ID to the tournament's squads array
             tournament.squads.push(squad._id);
         } catch (error) {
             throw new ApiError(500, `Failed to create squad for team ${teamId}: ${error.message}`);
         }
     }
+
     // Save the updated tournament with the newly added squads
     await tournament.save();
 
+    // Add notification logic
+    if (clubManagerId) {
+        // const adminUserId = "66e5e61a78e6dd01a8560b47"; // Replace with the actual admin ID
+        // Fetch the admin user ID dynamically
+        const adminUserId = await getAdminUserId();
+        const notificationMessage = `${clubName} has sent their teams (${teamNames.join(
+            ', '
+        )}) squads to be registered in the ${tournament.name} tournament. Please review the squads.`;
+        const redirectUrl = `/admin/competitions/${tournamentId}/squads`;
+
+        // Create a notification for the admin
+        const notification = new Notification({
+            type: "squad_registration",
+            status: "pending",
+            senderId: clubManagerId, // Club manager's ID
+            receiverId: adminUserId,
+            message: notificationMessage,
+            redirectUrl: redirectUrl, // Dynamic URL for squads
+            isRead: false,
+        });
+
+        await notification.save();
+
+        // Emit the notification in real-time via Socket.IO to the admin’s room
+        global.io.to(adminUserId.toString()).emit('notification', {
+            _id: notification._id,
+            type: "squad_registration",
+            status: "pending",
+            senderId: clubManagerId,
+            receiverId: adminUserId,
+            message: notificationMessage,
+            redirectUrl: redirectUrl,
+            timestamp: notification.timestamp,
+            isRead: false,
+        });
+    }
+
     // Return the success response with the created squads
     return res.status(201).json(
-        new ApiResponse(201, { tournament, squads: createdSquads }, "Teams added to tournament and squads created successfully")
+        new ApiResponse(
+            201,
+            { tournament, squads: createdSquads },
+            "Teams added to tournament and squads created successfully"
+        )
     );
 });
 
