@@ -9,7 +9,7 @@ import { sendSMS } from "../utils/twilioService.js";
 
 
 const registerUser = asyncHandler(async (req, res) => {
-    const { name, email, username, password, confirmPassword, role } = req.body;
+    const { name, email, username, password, confirmPassword, role, phone } = req.body;
 
     if ([name, email, username, confirmPassword, password, role].some((field) => field?.trim() === "")) {
         throw new ApiError(400, "All fields are required");
@@ -70,13 +70,16 @@ const registerUser = asyncHandler(async (req, res) => {
         password,
         username: username.toLowerCase(),
         role: role.toLowerCase(),
+        phone,
         verificationToken,
         verificationTokenExpiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
     });
 
     await sendVerificationEmail(user.email, verificationToken);
+    await sendSMS()
 
     const createdUser = await User.findById(user._id).select("-password -refreshToken");
+    console.log("user created", createdUser);
 
     if (!createdUser) {
         throw new ApiError(500, "Something went wrong while registering the user");
@@ -234,7 +237,6 @@ const generateAccessAndRefreshTokens = async (userId) => {
 
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
-    await sendSMS()
     if (!email || !password) {
         throw new ApiError(401, 'Email and Password required');
     }

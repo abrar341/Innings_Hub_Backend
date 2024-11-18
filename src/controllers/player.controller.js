@@ -36,7 +36,7 @@ const createPlayer = asyncHandler(async (req, res) => {
             role: role.trim(),
             battingStyle: battingStyle?.trim(),
             bowlingStyle: bowlingStyle?.trim(),
-            associatedClub: associatedClub?.trim(),
+            associatedClub: associatedClub?.trim() || null,
             CNIC: CNIC?.trim()
         };
 

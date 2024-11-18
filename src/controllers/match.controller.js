@@ -1259,11 +1259,84 @@ const deleteMatchesByRound = asyncHandler(async (req, res) => {
     }
 });
 
+const getFeaturedMatches = asyncHandler(async (req, res) => {
+    try {
+        // Fetch two completed matches, sorted by most recent
+        const completedMatches = await Match.find({ status: 'completed' })
+            .populate('innings.team innings.battingPerformances innings.bowlingPerformances')
+            .populate('teams')
+            .populate('tournament')
+            .populate({
+                path: 'playing11.team',
+                model: 'Team'
+            })
+            .populate({
+                path: 'playing11.players',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.nonStriker',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.currentBowler',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.currentStriker',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.previousBowler',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.team',
+                model: 'Team'
+            })
+            .populate({
+                path: 'innings.battingPerformances.player',
+                model: 'Player'
+            })
+            .populate('innings.bowlingPerformances.player')
+            .populate({
+                path: 'innings.fallOfWickets.batsmanOut',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.battingPerformances.bowler',
+                model: 'Player'
+            })
+            .populate({
+                path: 'innings.battingPerformances.fielder',
+                model: 'Player'
+            })
+            .populate({
+                path: 'result.winner',
+                model: 'Team'
+            })
+            .populate({
+                path: 'round',
+                model: 'Round'
+            })
+            .sort({ endDate: -1 })
+            .limit(2);
+
+        // Respond with the selected matches
+        res.status(200).json(new ApiResponse(200, completedMatches, 'Featured matches fetched successfully'));
+    } catch (error) {
+        console.error('Error fetching featured matches:', error.message);
+        throw new ApiError(500, error.message || 'Internal Server Error');
+    }
+});
+
+
+
 
 
 
 
 
 export {
-    createMatch, createPost, getPostsByMatchId, getMatchesByTeamId, getMatchesByTournamentId, getMatchById, startMatch, initializePlayers, getAllMatches, scheduleMatches, deleteMatchesByRound, getParticularMatches
+    createMatch, createPost, getPostsByMatchId, getMatchesByTeamId, getMatchesByTournamentId, getMatchById, startMatch, initializePlayers, getAllMatches, scheduleMatches, deleteMatchesByRound, getParticularMatches, getFeaturedMatches
 }

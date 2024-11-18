@@ -46,33 +46,33 @@ export const setupSocketHandlers = (io) => {
         console.log('A user connected');
 
 
-        try {
-            // Fetch the matches on connection
-            const { liveMatch, completedMatch } = await fetchMatches();
+        // try {
+        //     // Fetch the matches on connection
+        //     const { liveMatch, completedMatch } = await fetchMatches();
 
-            // Emit the matches to the connected user
-            socket.emit('carouselData', { liveMatch, completedMatch });
+        //     // Emit the matches to the connected user
+        //     socket.emit('carouselData', { liveMatch, completedMatch });
 
-            // Periodically check for live match updates (optional)
-            const interval = setInterval(async () => {
-                const updatedLiveMatch = await Match.findOne({ status: 'live' })
-                    .sort({ date: 1 })
-                    .populate('teams tournament')
-                    .exec();
+        //     // Periodically check for live match updates (optional)
+        //     const interval = setInterval(async () => {
+        //         const updatedLiveMatch = await Match.findOne({ status: 'live' })
+        //             .sort({ date: 1 })
+        //             .populate('teams tournament')
+        //             .exec();
 
-                if (!updatedLiveMatch || !liveMatch || updatedLiveMatch.id !== liveMatch.id) {
-                    socket.emit('liveMatchUpdated', updatedLiveMatch);
-                }
-            }, 10000); // Check every 10 seconds
+        //         if (!updatedLiveMatch || !liveMatch || updatedLiveMatch.id !== liveMatch.id) {
+        //             socket.emit('liveMatchUpdated', updatedLiveMatch);
+        //         }
+        //     }, 10000); // Check every 10 seconds
 
-            socket.on('disconnect', () => {
-                console.log('A user disconnected:', socket.id);
-                clearInterval(interval);
-            });
-        } catch (error) {
-            console.error('Error during connection handling:', error.message);
-            socket.emit('error', { message: 'Failed to fetch match data' });
-        }
+        //     socket.on('disconnect', () => {
+        //         console.log('A user disconnected:', socket.id);
+        //         clearInterval(interval);
+        //     });
+        // } catch (error) {
+        //     console.error('Error during connection handling:', error.message);
+        //     socket.emit('error', { message: 'Failed to fetch match data' });
+        // }
 
         const userRole = socket.handshake.query.role; // Assuming the role is passed during connection
         const userId = socket.handshake.query.userId;
@@ -95,6 +95,35 @@ export const setupSocketHandlers = (io) => {
 
                 io.to(userId).emit("notifications", notifications);
             });
+        }
+        else {
+            try {
+                // Fetch the matches on connection
+                const { liveMatch, completedMatch } = await fetchMatches();
+
+                // Emit the matches to the connected user
+                socket.emit('carouselData', { liveMatch, completedMatch });
+
+                // Periodically check for live match updates (optional)
+                const interval = setInterval(async () => {
+                    const updatedLiveMatch = await Match.findOne({ status: 'live' })
+                        .sort({ date: 1 })
+                        .populate('teams tournament')
+                        .exec();
+
+                    if (!updatedLiveMatch || !liveMatch || updatedLiveMatch.id !== liveMatch.id) {
+                        socket.emit('liveMatchUpdated', updatedLiveMatch);
+                    }
+                }, 10000); // Check every 10 seconds
+
+                socket.on('disconnect', () => {
+                    console.log('A user disconnected:', socket.id);
+                    clearInterval(interval);
+                });
+            } catch (error) {
+                console.error('Error during connection handling:', error.message);
+                socket.emit('error', { message: 'Failed to fetch match data' });
+            }
         }
 
         // Handling joining a specific match room
