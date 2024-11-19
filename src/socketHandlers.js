@@ -100,7 +100,6 @@ export const setupSocketHandlers = (io) => {
             try {
                 // Fetch the matches on connection
                 const { liveMatch, completedMatch } = await fetchMatches();
-
                 // Emit the matches to the connected user
                 socket.emit('carouselData', { liveMatch, completedMatch });
 
@@ -178,7 +177,6 @@ export const setupSocketHandlers = (io) => {
                     .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
                     .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' })
                     .populate({ path: 'round', model: 'Round' })
-
 
                 //
 
@@ -424,7 +422,6 @@ export const setupSocketHandlers = (io) => {
                 }
                 // fielder
                 if (event.startsWith("0")) {
-
                     runScored = 0;
                     battingPerformance.ballsFaced += 1;
                     bowlingPerformance.balls += 1;
