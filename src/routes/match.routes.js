@@ -1,7 +1,7 @@
 
 
 import { Router } from "express";
-import { createMatch, createPost, getAllMatches, getFeaturedMatches, getMatchById, getMatchesByTeamId, getMatchesByTournamentId, getParticularMatches, getPostsByMatchId, initializePlayers, startMatch } from "../controllers/match.controller.js";
+import { createMatch, createPost, getAllMatches, getAllPosts, getFeaturedMatches, getMatchById, getMatchesByTeamId, getMatchesByTournamentId, getParticularMatches, getPostsByMatchId, initializePlayers, startMatch } from "../controllers/match.controller.js";
 import { getSquadPlayers } from "../controllers/tournament.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 
@@ -17,6 +17,8 @@ router.route("/getAllMatches").get(getAllMatches)
 router.route("/getFeaturedMatches").get(getFeaturedMatches)
 router.route("/getParticularMatches").get(getParticularMatches)
 router.route("/getPostsByMatchId/:matchId").get(getPostsByMatchId)
+router.route("/getPaginatedPosts").get(getAllPosts);
+
 router.route("/getSquadPlayers/:tournamentId/:teamId").get(getSquadPlayers)
 router.route("/createPost").post(
     upload.fields([{ name: "images", maxCount: 3 }])

@@ -222,7 +222,11 @@ const matchSchema = new mongoose.Schema({
     teamStats: {
         type: Boolean,
         default: false,
-    }
+    },
+    inningBackup: {
+        type: mongoose.Schema.Types.Mixed, // Generic type to allow flexibility
+        default: null,
+    },
 },
     {
         timestamps: true,

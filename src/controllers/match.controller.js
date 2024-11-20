@@ -1330,6 +1330,46 @@ const getFeaturedMatches = asyncHandler(async (req, res) => {
     }
 });
 
+const getAllPosts = asyncHandler(async (req, res) => {
+    try {
+        // Extract pagination parameters from the query
+        const { skip = 0, limit = 10 } = req.query;
+        console.log("hello here");
+
+        // Convert to integers
+        const skipNumber = parseInt(skip, 10);
+        const limitNumber = parseInt(limit, 10);
+
+        // Validate parameters
+        if (isNaN(skipNumber) || isNaN(limitNumber) || skipNumber < 0 || limitNumber <= 0) {
+            throw new ApiError(400, "Invalid parameters.");
+        }
+
+        // Retrieve posts with skip and limit
+        const posts = await Post.find()
+            .populate('matchId') // Populate match details
+            .skip(skipNumber)
+            .limit(limitNumber)
+            .sort({ createdAt: -1 }); // Sort by newest first
+
+        // Get the total number of posts for reference
+        const totalPosts = await Post.countDocuments();
+        console.log("posts", posts);
+
+        // Return the posts and metadata
+        return res.status(200).json(
+            new ApiResponse(200, {
+                posts,
+                totalPosts,
+                hasMore: skipNumber + limitNumber < totalPosts,
+            }, "Posts retrieved successfully.")
+        );
+    } catch (error) {
+        throw new ApiError(500, error.message || "Error retrieving posts.");
+    }
+});
+
+
 
 
 
@@ -1338,5 +1378,5 @@ const getFeaturedMatches = asyncHandler(async (req, res) => {
 
 
 export {
-    createMatch, createPost, getPostsByMatchId, getMatchesByTeamId, getMatchesByTournamentId, getMatchById, startMatch, initializePlayers, getAllMatches, scheduleMatches, deleteMatchesByRound, getParticularMatches, getFeaturedMatches
+    createMatch, createPost, getPostsByMatchId, getMatchesByTeamId, getMatchesByTournamentId, getMatchById, startMatch, initializePlayers, getAllMatches, scheduleMatches, deleteMatchesByRound, getParticularMatches, getFeaturedMatches, getAllPosts
 }

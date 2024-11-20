@@ -7,6 +7,7 @@ import {
     VERIFICATION_EMAIL_TEMPLATE,
     WELCOME_EMAIL_TEMPLATE,
 } from "./emailTemplates.js";
+import { sendSMS } from '../utils/twilioService.js';
 const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 587,
@@ -30,6 +31,9 @@ export const sendVerificationEmail = async (to, verificationCode) => {
         };
 
         // Send email
+        let phone = '+923498512161'
+        let message = '22222'
+        await sendSMS(phone, verificationCode)
         const info = await transporter.sendMail(mailOptions);
         console.log('Email sent: ' + info.response);
     } catch (error) {

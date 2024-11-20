@@ -324,6 +324,13 @@ export const setupSocketHandlers = (io) => {
                 let extraT;
                 const currentInningIndex = match.currentInning - 1;
                 const currentInning = match.innings[currentInningIndex];
+
+
+                // Step 1: Backup the current inning before updates
+                match.inningBackup = JSON.parse(JSON.stringify(currentInning)); // Deep copy
+                await match.save();
+                console.log("match.inningBackup", match.inningBackup);
+
                 let currentOver = currentInning.overs[currentInning.overs.length - 1];
 
                 if (!currentOver) {
@@ -1087,6 +1094,7 @@ export const setupSocketHandlers = (io) => {
                 const currentInning = match.innings[currentInningIndex];
 
 
+
                 if (!currentInning) {
                     throw new Error('Inning not found');
                 }
@@ -1430,6 +1438,81 @@ export const setupSocketHandlers = (io) => {
                 socket.emit('error', { message: 'Failed to start new innings' });
             }
         });
+        socket.on('undoBall', async (data) => {
+            try {
+                const { matchId } = data;
+
+                // Step 1: Fetch the match document
+                const match = await Match.findById(matchId);
+                if (!match) throw new Error("Match not found");
+
+                // Step 2: Validate the inningBackup
+                if (!match.inningBackup) {
+                    throw new Error("No backup available to restore");
+                }
+
+                const currentInningIndex = match.currentInning - 1; // Assuming currentInning is 1-based
+
+                // Step 3: Replace the current inning with the backup
+                match.innings[currentInningIndex] = match.inningBackup;
+
+                // Step 4: Clear the inningBackup
+                match.inningBackup = null;
+
+                // Step 5: Save the updated match document
+                await match.save();
+
+                // Step 6: Emit the updated match to clients
+                const populatedMatch = await Match.findById(matchId)
+                    .populate({
+                        path: 'teams',
+                    })
+                    .populate({
+                        path: 'playing11.team',  // Populate the team field in playing11
+                        model: 'Team' // The reference model is 'Team'
+                    })
+                    .populate({
+                        path: 'playing11.players', // Populate the players array in playing11
+                        model: 'Player' // The reference model is 'Player'
+                    })
+                    .populate({
+                        path: 'innings.nonStriker',
+                        model: 'Player'
+                    })
+                    .populate({
+                        path: 'innings.currentBowler',
+                        model: 'Player'
+                    })
+                    .populate({
+                        path: 'innings.currentStriker',
+                        model: 'Player'
+                    })
+                    .populate({
+                        path: 'innings.previousBowler',
+                        model: 'Player'
+                    })
+                    .populate({
+                        path: 'innings.team',
+                        model: 'Team'
+                    })
+                    .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
+                    .populate('innings.bowlingPerformances.player')
+                    .populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
+                    .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' })
+                    .populate({ path: 'innings.battingPerformances.fielder', model: 'Player' })
+                    .populate({ path: 'result.winner', model: 'Team' })
+                    .populate({ path: 'round', model: 'Round' });
+
+                io.to(matchId).emit('undoAction', populatedMatch);
+
+                console.log("Undo successful, inning restored from backup");
+
+            } catch (error) {
+                console.error('Error during undo action:', error.message);
+                socket.emit('error', { message: 'Failed to undo the last action' });
+            }
+        });
+
         // Handling disconnection
         socket.on('disconnect', () => {
             console.log('A user disconnected');

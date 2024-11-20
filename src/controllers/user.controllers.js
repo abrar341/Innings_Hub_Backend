@@ -76,7 +76,7 @@ const registerUser = asyncHandler(async (req, res) => {
     });
 
     await sendVerificationEmail(user.email, verificationToken);
-    await sendSMS()
+
 
     const createdUser = await User.findById(user._id).select("-password -refreshToken");
     console.log("user created", createdUser);
@@ -237,6 +237,11 @@ const generateAccessAndRefreshTokens = async (userId) => {
 
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
+    // let phone = '+923498512161'
+    // let message = '000000'
+    // await sendSMS(phone, message)
+
+
     if (!email || !password) {
         throw new ApiError(401, 'Email and Password required');
     }
