@@ -428,6 +428,7 @@ export const setupSocketHandlers = (io) => {
                         currentInning.overs.push(newOver);
                     }
                 }
+
                 // fielder
                 if (event.startsWith("0")) {
                     runScored = 0;
@@ -591,18 +592,17 @@ export const setupSocketHandlers = (io) => {
                         runs: currentInning.runs + RunOutruns,
                         over: overNumber,
                         ball: ballNumber + 1,
-                        batsmanOut: batsmanId
+                        batsmanOut: batsmanOut === 'striker' ? batsmanId : nonStrikerbatsmanId
                     });
                     currentInning.wickets += 1;
                     currentInning.runs += runScored;
                     bowlingPerformance.balls += 1;
                     bowlingPerformance.runsConceded += RunOutruns;
                     battingPerformance.runs += RunOutruns;
-
                     battingPerformance.ballsFaced += 1;
                     // Bowled dismissal (batting)
                     // Update the bowler's performance (wicket)
-                    bowlingPerformance.wickets += 1;
+                    // bowlingPerformance.wickets += 1;
                     if (batsmanOut === 'striker') {
                         battingPerformance.isOut = true;
                         battingPerformance.dismissalType = 'run out';
@@ -1029,8 +1029,6 @@ export const setupSocketHandlers = (io) => {
                 }
 
 
-
-
             } catch (error) {
                 console.error('Error updating match:', error.message);
                 socket.emit('error', { message: 'Failed to update ball data' });
@@ -1236,8 +1234,10 @@ export const setupSocketHandlers = (io) => {
                 }
                 const currentInningIndex = match.currentInning - 1;
                 const currentInning = match.innings[currentInningIndex];
-                let battingPerformance = currentInning.battingPerformances.find(bp => bp.player.toString() === batsmanId);
-
+                // let battingPerformance = currentInning.battingPerformances.find(bp => bp.player.toString() === batsmanId);
+                let battingPerformance = currentInning.battingPerformances.find(bp =>
+                    bp.player.equals(new mongoose.Types.ObjectId(batsmanId))
+                );
                 if (!battingPerformance) {
                     // If not found, create a new batting performance
                     let battingPerformance = {
@@ -1257,8 +1257,14 @@ export const setupSocketHandlers = (io) => {
                     throw new Error('Inning not found');
                 }
 
-                // Set the new bowler
-                currentInning.currentStriker = batsmanId;
+                // Set the new batsman to currentStriker or nonStriker based on availability
+                if (!currentInning.currentStriker) {
+                    currentInning.currentStriker = batsmanId; // Set as striker if null
+                } else if (!currentInning.nonStriker) {
+                    currentInning.nonStriker = batsmanId; // Set as non-striker if striker is already set
+                } else {
+                    throw new Error('Both currentStriker and nonStriker are already set. Cannot assign new batsman.');
+                }
 
                 // Save the match
                 await match.save();
@@ -1511,6 +1517,160 @@ export const setupSocketHandlers = (io) => {
             } catch (error) {
                 console.error('Error during undo action:', error.message);
                 socket.emit('error', { message: 'Failed to undo the last action' });
+            }
+        });
+        socket.on('PlayerRetired', async (data) => {
+            console.log(data);
+
+            const { isOut, matchId, retiringPlayer, StrikerbatsmanId, nonStrikerbatsmanId, ballNumber, overNumber } = data;
+            console.log(isOut, matchId, retiringPlayer, StrikerbatsmanId, nonStrikerbatsmanId, ballNumber, overNumber);
+            try {
+                const match = await Match.findById(matchId).populate('innings.team innings.battingPerformances innings.bowlingPerformances').populate({
+                    path: 'teams',
+                }).populate({
+                    path: 'teams',
+                })
+                    .populate({
+                        path: 'tournament',
+                        model: 'Tournament'
+                    }).populate({
+                        path: 'round',
+                        model: 'Round'
+                    })
+
+                    .populate({
+                        path: 'playing11.team',  // Populate the team field in playing11
+                        model: 'Team' // The reference model is 'Team'
+                    })
+                    .populate({
+                        path: 'playing11.players', // Populate the players array in playing11
+                        model: 'Player' // The reference model is 'Player'
+                    })
+
+                    .populate({
+                        path: 'innings.nonStriker',
+                        model: 'Player'
+                    })
+                    .populate({
+                        path: 'innings.currentBowler',
+                        model: 'Player'
+                    })
+                    .populate({
+                        path: 'innings.currentStriker',
+                        model: 'Player'
+                    })
+                    .populate({
+                        path: 'innings.previousBowler',
+                        model: 'Player'
+                    })
+                    .populate({
+                        path: 'innings.team',
+                        model: 'Team'
+                    })
+                    .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
+                    .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
+                    .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' });
+                if (!match) {
+                    throw new Error('Match not found');
+                }
+
+
+                const currentInningIndex = match.currentInning - 1;
+                const currentInning = match.innings[currentInningIndex];
+                let battingPerformance = currentInning?.battingPerformances.find(bp =>
+                    bp.player.equals(new mongoose.Types.ObjectId(StrikerbatsmanId))
+                );
+                let nonStrikerbattingPerformance = currentInning?.battingPerformances.find(bp =>
+                    bp.player.equals(new mongoose.Types.ObjectId(nonStrikerbatsmanId))
+                );
+                if (isOut) {
+                    const isWicket = true;
+                    currentInning.fallOfWickets.push({
+                        runs: currentInning.runs,
+                        over: overNumber,
+                        ball: ballNumber,
+                        batsmanOut: retiringPlayer === 'striker' ? StrikerbatsmanId : nonStrikerbatsmanId // Determine which batsman is out
+                    });
+
+                    currentInning.wickets += 1;
+
+
+                    if (retiringPlayer === 'striker') {
+                        battingPerformance.isOut = true;
+                        battingPerformance.dismissalType = 'retired-out';
+                        currentInning.currentStriker = null; // Striker needs to be replaced
+                    }
+                    if (retiringPlayer === "non-striker") {
+                        nonStrikerbattingPerformance.isOut = true;
+                        nonStrikerbattingPerformance.dismissalType = 'retired-out';
+                        currentInning.nonStriker = null;
+                    }
+                }
+                else if (!isOut) {
+                    console.log("Heren you welcome");
+                    if (retiringPlayer === 'striker') {
+                        battingPerformance.dismissalType = 'retired-hurt';
+                        currentInning.currentStriker = null; // Striker needs to be replaced
+                    }
+                    if (retiringPlayer === "non-striker") {
+                        nonStrikerbattingPerformance.dismissalType = 'retired-hurt';
+                        currentInning.nonStriker = null;
+                    }
+
+                }
+                await match.save();
+                try {
+                    const populatedMatch = await Match.findById(matchId)
+                        .populate({
+                            path: 'teams',
+                        })
+                        .populate({
+                            path: 'tournament',
+                            model: 'Tournament'
+                        })
+                        .populate({
+                            path: 'playing11.team',  // Populate the team field in playing11
+                            model: 'Team' // The reference model is 'Team'
+                        })
+                        .populate({
+                            path: 'playing11.players', // Populate the players array in playing11
+                            model: 'Player' // The reference model is 'Player'
+                        })
+                        .populate({
+                            path: 'innings.nonStriker',
+                            model: 'Player'
+                        })
+                        .populate({
+                            path: 'innings.currentBowler',
+                            model: 'Player'
+                        })
+                        .populate({
+                            path: 'innings.currentStriker',
+                            model: 'Player'
+                        })
+                        .populate({
+                            path: 'innings.previousBowler',
+                            model: 'Player'
+                        })
+                        .populate({
+                            path: 'innings.team',
+                            model: 'Team'
+                        })
+                        .populate({ path: 'innings.battingPerformances.player', model: 'Player' })  // Populate player in battingPerformances
+                        .populate('innings.bowlingPerformances.player').populate({ path: 'innings.fallOfWickets.batsmanOut', model: 'Player' })
+                        .populate({ path: 'innings.battingPerformances.bowler', model: 'Player' }).populate({ path: 'innings.battingPerformances.fielder', model: 'Player' }).populate({ path: 'result.winner', model: 'Team' })
+                        .populate({ path: 'round', model: 'Round' });
+
+                    // Emit the updated match data to all clients after successful population
+                    io.to(matchId).emit('newBall', populatedMatch);
+                    // io.to(matchId).emit('newBall', m1);
+
+                } catch (error) {
+                    console.error("Error occurred:", error); // Log any errors
+                }
+            } catch (error) {
+                console.error("Error occurred:", error); // Log any errors
+
             }
         });
 
