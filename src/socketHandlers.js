@@ -10,7 +10,8 @@ async function getNotificationsForUser(userId) {
     console.log("userId", userId);
 
     // Fetch notifications from the database where `receiverId` is `userId`
-    return await Notification.find({ receiverId: userId });
+    return await Notification.find({ receiverId: userId })
+        .populate('senderId', 'profilePicture'); // Populate senderId with only profilePicture
 }
 
 

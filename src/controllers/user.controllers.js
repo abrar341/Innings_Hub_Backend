@@ -88,6 +88,57 @@ const registerUser = asyncHandler(async (req, res) => {
     return res.status(201).json(new ApiResponse(200, createdUser, "User registered successfully"));
 });
 
+const updateProfilePicture = asyncHandler(async (req, res) => {
+    try {
+        const { userId } = req.params;
+        console.log("req.params", req.params);
+
+        // Check if userId is provided
+        if (!userId) {
+            throw new ApiError(400, "User ID is required.");
+        }
+
+        // Check if a profile picture file is provided
+        if (!req.files || !req.files.profilePicture || req.files.profilePicture.length === 0) {
+            throw new ApiError(400, "Profile picture file is required.");
+        }
+
+        const profilePictureFile = req.files.profilePicture[0];
+        const profilePictureLocalPath = profilePictureFile.path;
+
+        // Upload new profile picture to Cloudinary
+        const profilePicture = await uploadOnCloudinary(profilePictureLocalPath);
+
+        // Ensure upload was successful
+        if (!profilePicture || !profilePicture.url) {
+            throw new ApiError(500, "Failed to upload the profile picture.");
+        }
+
+        // Update the user's profile picture in the database
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { profilePicture: profilePicture.url },
+            { new: true, runValidators: true }
+        ).select('profilePicture');
+
+        if (!updatedUser) {
+            throw new ApiError(404, "User not found.");
+        }
+
+        return res.status(200).json(
+            new ApiResponse(200, updatedUser, "Profile picture updated successfully.")
+        );
+    } catch (error) {
+        console.log(error);
+
+        if (error.name === 'CastError') {
+            throw new ApiError(400, "Invalid user ID.");
+        }
+
+        throw new ApiError(500, "An error occurred while updating the profile picture.");
+    }
+});
+
 
 const changePassword = asyncHandler(async (req, res) => {
     const { email, oldPassword, newPassword } = req.body;
@@ -385,5 +436,6 @@ export {
     getAllScorers,
     deleteUser,
     forgotPassword,
-    changePassword
+    changePassword,
+    updateProfilePicture
 }
