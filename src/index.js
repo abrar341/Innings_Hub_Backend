@@ -4,8 +4,6 @@ import { app } from './app.js';
 import { errorHandler } from "./middlewares/errorMiddleware.js";
 import { Server } from "socket.io";
 import http from "http";
-import Match from "./models/match.model.js";
-import mongoose from "mongoose";
 import { setupSocketHandlers } from './socketHandlers.js'
 dotenv.config({
   path: './.env'

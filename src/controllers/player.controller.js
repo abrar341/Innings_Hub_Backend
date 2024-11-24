@@ -8,6 +8,7 @@ import { Team } from "../models/team.model.js";
 import Match from "../models/match.model.js";
 import { Club } from "../models/club.model.js";
 import { Notification } from "../models/notification.model.js";
+import { getAdminUserId } from "../utils/getAdminUserId.js";
 
 const createPlayer = asyncHandler(async (req, res) => {
     console.log(req.body);
@@ -347,7 +348,9 @@ const addPlayerToClub = asyncHandler(async (req, res) => {
         await player.save();
 
         // Notification details
-        const adminUserId = "66e5e61a78e6dd01a8560b47"; // Admin user ID as the sender
+        // const adminUserId = "66e5e61a78e6dd01a8560b47"; // Admin user ID as the sender
+        const adminUserId = await getAdminUserId();
+
         const managerId = club.manager._id; // Club manager as the recipient
 
         // Create a notification (optional: save this to a notifications collection if needed)
@@ -406,7 +409,9 @@ const addPlayerToClubReq = asyncHandler(async (req, res) => {
         await player.save();
 
         // Create a notification for the admin
-        const adminUserId = "66e5e61a78e6dd01a8560b47"; // Replace with actual admin ID
+        // const adminUserId = "66e5e61a78e6dd01a8560b47"; // Replace with actual admin ID
+        const adminUserId = await getAdminUserId();
+
         const notification = new Notification({
             type: "player_request",
             status: "pending",

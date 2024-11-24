@@ -706,7 +706,6 @@ const RegisterTeamsToTournament = asyncHandler(async (req, res) => {
 
     // Add notification logic
     if (clubManagerId) {
-        // const adminUserId = "66e5e61a78e6dd01a8560b47"; // Replace with the actual admin ID
         // Fetch the admin user ID dynamically
         const adminUserId = await getAdminUserId();
         const notificationMessage = `${clubName} has sent their teams (${teamNames.join(

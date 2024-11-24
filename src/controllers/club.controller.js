@@ -9,6 +9,7 @@ import { User } from "../models/user.model.js";
 import { Player } from "../models/player.model.js";
 import { Team } from "../models/team.model.js";
 import { Notification } from "../models/notification.model.js";
+import { getAdminUserId } from "../utils/getAdminUserId.js";
 
 const createClub = asyncHandler(async (req, res) => {
     try {
@@ -260,7 +261,9 @@ const approveClub = asyncHandler(async (req, res) => {
         await club.save();
 
         // Create a notification for the club manager
-        const adminUserId = "66e5e61a78e6dd01a8560b47";
+        // const adminUserId = "66e5e61a78e6dd01a8560b47";
+        const adminUserId = await getAdminUserId();
+
         const notificationMessage = `${club.clubName} has been approved by the admin. Congratulations!`;
         const notification = new Notification({
             type: "club_approval",
@@ -315,7 +318,9 @@ const rejectClub = asyncHandler(async (req, res) => {
         await club.save();
 
         // Create a notification for the club manager
-        const adminUserId = "66e5e61a78e6dd01a8560b47";
+        // const adminUserId = "66e5e61a78e6dd01a8560b47";
+        const adminUserId = await getAdminUserId();
+
         const notificationMessage = `${club.clubName} has been rejected by the admin. Reason: ${reason}`;
         const notification = new Notification({
             type: "club_rejection",
