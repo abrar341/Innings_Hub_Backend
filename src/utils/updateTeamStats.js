@@ -19,6 +19,8 @@ const updateTeamStats = async (matchId) => {
 
         const { teams, result } = match;
         const [team1, team2] = teams;
+        console.log("teams", teams);
+
 
         // Update matches count for both teams
         await Team.updateMany(
@@ -36,7 +38,10 @@ const updateTeamStats = async (matchId) => {
         } else {
             // If there is a winner, update wins and losses accordingly
             const winnerId = result.winner._id || result.winner.toString();
-            const loserId = winnerId === team1.toString() ? team2 : team1;
+            const loserId = winnerId.toString() === team1.toString() ? team2 : team1;
+
+            console.log("winnerId,loserId", winnerId, loserId);
+
 
             // Increment wins for the winning team
             await Team.updateOne(

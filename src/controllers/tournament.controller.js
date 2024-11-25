@@ -581,7 +581,6 @@ const removePlayerFromSquad = asyncHandler(async (req, res) => {
         new ApiResponse(200, squad, "Player removed from the squad successfully")
     );
 });
-
 const getTeamsInTournament = asyncHandler(async (req, res) => {
     const { tournamentId } = req.params;
 

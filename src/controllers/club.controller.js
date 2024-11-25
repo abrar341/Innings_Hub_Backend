@@ -78,7 +78,9 @@ const createClub = asyncHandler(async (req, res) => {
         await managerUser.save();
 
         // Create a notification for the admin
-        const adminUserId = "66e5e61a78e6dd01a8560b47"; // Replace with the actual admin ID
+        // const adminUserId = "66e5e61a78e6dd01a8560b47"; // Replace with the actual admin ID
+        const adminUserId = await getAdminUserId();
+
         const notificationMessage =
             review === 'true'
                 ? `${club.clubName} has resubmitted their club details for approval by ${managerUser.name}.`
@@ -97,7 +99,8 @@ const createClub = asyncHandler(async (req, res) => {
         await notification.save();
 
         // Emit the notification in real-time via Socket.IO to the admin’s room
-        global.io.to(adminUserId).emit('notification', {
+        global.io.to(adminUserId.toString()).emit('notification', {
+            _id: notification._id,
             type: "club_registration",
             status: "pending",
             senderId: managerUser._id,

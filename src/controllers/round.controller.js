@@ -148,6 +148,12 @@ const deleteRound = asyncHandler(async (req, res) => {
         if (!round) {
             throw new ApiError(404, 'Round not found.');
         }
+        // Check if matches are already scheduled for this round
+        const matchesExist = round.groups.some(group => group.matches && group.matches.length > 0);
+        console.log("matchesExist", matchesExist);
+        if (matchesExist) {
+            throw new ApiError(400, "Matches scheduled for this round so that cannot delete round...");
+        }
 
         // Step 3: Delete the round
         await round.deleteOne();

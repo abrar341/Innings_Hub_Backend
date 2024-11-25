@@ -425,7 +425,7 @@ const addPlayerToClubReq = asyncHandler(async (req, res) => {
         await notification.save();
 
         // Emit the notification in real-time via Socket.IO to the admin’s room
-        global.io.to(adminUserId).emit('notification', {
+        global.io.to(adminUserId.toString()).emit('notification', {
             _id: notification._id,
             type: "player_request",
             status: "pending",

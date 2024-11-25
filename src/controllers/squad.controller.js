@@ -11,6 +11,7 @@ import { Player } from '../models/player.model.js';
 
 const addPlayerToSquad = asyncHandler(async (req, res) => {
     const { squadId, playerIds } = req.body;
+    console.log("hello world");
 
     // Validate required fields
     if (!squadId || !playerIds || !Array.isArray(playerIds) || playerIds.length === 0) {
@@ -21,6 +22,25 @@ const addPlayerToSquad = asyncHandler(async (req, res) => {
     const squad = await Squad.findById(squadId).populate('team').populate('tournament');
     if (!squad) {
         throw new ApiError(404, "Squad not found");
+    }
+
+    // Check if players are already in any squad for the same tournament
+    const squadsInTournament = await Squad.find({ tournament: squad.tournament._id });
+    const playersInTournament = new Set();
+
+    squadsInTournament.forEach((squad) => {
+        squad.players.forEach((player) => {
+            playersInTournament.add(player.toString());
+        });
+    });
+
+    const alreadyInOtherSquads = playerIds.filter((playerId) => playersInTournament.has(playerId));
+
+    if (alreadyInOtherSquads.length > 0) {
+        const playerDetails = await Player.find({ _id: { $in: alreadyInOtherSquads } }, 'playerName');
+        const playerNames = playerDetails.map(player => player.playerName).join(', ');
+
+        throw new ApiError(400, `The following players are already part of another squad for the tournament '${squad.tournament.name}': ${playerNames}.`);
     }
 
     // Fetch the admin user ID dynamically
@@ -49,22 +69,19 @@ const addPlayerToSquad = asyncHandler(async (req, res) => {
 
     // Notification message
     const playerCount = newPlayers.length;
-    // Fetch player details to include names in the message
     const players = await Player.find({ _id: { $in: newPlayers } }, 'playerName');
     console.log("players", players);
 
     const playerNames = players.map(player => player.playerName).join(', ');
 
-    // Construct the notification message
     const playersMessage = playerCount > 1
         ? `The following players have been added to squad of the '${squad.team.teamName}' team in the tournament '${squad.tournament.name}': ${playerNames}.`
         : `The player '${playerNames}' has been added to your squad of the '${squad.team.teamName}' team in the tournament '${squad.tournament.name}'.`;
 
     const notificationMessage = `${playersMessage} Check your squad for details.`;
 
-    const redirectUrl = `/series/${squad.tournament._id}/squads`; // Adjust based on your front-end routes
+    const redirectUrl = `/series/${squad.tournament._id}/squads`;
 
-    // Create a notification for the club manager
     const notification = new Notification({
         type: "player_added_to_squad",
         status: "info",
@@ -77,7 +94,6 @@ const addPlayerToSquad = asyncHandler(async (req, res) => {
 
     await notification.save();
 
-    // Emit notification via Socket.IO
     global.io.to(manager._id.toString()).emit('notification', {
         _id: notification._id,
         type: "player_added_to_squad",
@@ -90,11 +106,11 @@ const addPlayerToSquad = asyncHandler(async (req, res) => {
         isRead: false,
     });
 
-    // Return a success response with the updated squad
     return res.status(200).json(
         new ApiResponse(200, squad, "Players added to the squad successfully")
     );
 });
+
 export const getAllSquads = asyncHandler(async (req, res) => {
     // Fetch all squads from the database
     const squads = await Squad.find().populate('team tournament players');
@@ -158,7 +174,8 @@ const approveSquadById = asyncHandler(async (req, res) => {
     // Create a detailed notification message
     const notificationMessage = `Your squad for the team '${team.teamName}' in the tournament '${squad.tournament.name}' has been approved. Congratulations!`;
     const redirectUrl = `/series/${squad.tournament._id}/squads`; // Adjust based on your front-end routes
-    const adminUserId = "66e5e61a78e6dd01a8560b47";
+    const adminUserId = await getAdminUserId();
+
     // Create a notification for the club manager
     const notification = new Notification({
         type: "squad_approval",
